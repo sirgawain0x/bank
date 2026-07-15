@@ -10,7 +10,11 @@ import { Modal } from "@/components/common/Modal";
 import { useAaveWalletClient } from "@/hooks/useAaveWalletClient";
 import { formatUsd } from "@/lib/formatters";
 import { formatVaultShares } from "@/lib/yearnUtils";
-import { toast } from "sonner";
+import {
+  normalizeTxErrorMessage,
+  showTxErrorToast,
+  showTxSuccessToast,
+} from "@/lib/transactionToast";
 
 type WithdrawInputMode = "shares" | "asset";
 
@@ -213,7 +217,8 @@ export function AaveVaultModal({
           args: [inputUnits],
         })
         .then((shares) => {
-          if (active) setExpectedShares(formatUnits(shares, resolvedShareDecimals ?? assetDecimals));
+          if (active)
+            setExpectedShares(formatUnits(shares, resolvedShareDecimals ?? assetDecimals));
         })
         .catch(() => {
           if (active) setExpectedShares(null);
@@ -221,8 +226,18 @@ export function AaveVaultModal({
     } else {
       setExpectedShares(null);
     }
-    return () => { active = false; };
-  }, [mode, hasPositiveInput, inputUnits, vaultAddress, publicClient, resolvedShareDecimals, assetDecimals]);
+    return () => {
+      active = false;
+    };
+  }, [
+    mode,
+    hasPositiveInput,
+    inputUnits,
+    vaultAddress,
+    publicClient,
+    resolvedShareDecimals,
+    assetDecimals,
+  ]);
 
   useEffect(() => {
     if (!publicClient || !hasPositiveInput || inputUnits == null) {
@@ -472,39 +487,43 @@ export function AaveVaultModal({
             await sendAndWait({ to: assetAddress, data: approveData });
           }
 
-          // Deposit into the ERC-4626 vault
           const depositData = encodeFunctionData({
             abi: ERC4626_DEPOSIT_ABI,
             functionName: "deposit",
             args: [inputUnits, userAddress],
           });
-          await sendAndWait({ to: vaultAddress, data: depositData });
+          const txHash = await sendAndWait({ to: vaultAddress, data: depositData });
 
-          toast.success("Deposit complete", {
+          showTxSuccessToast({
+            title: "Deposit complete",
             description: `${formatUsd(normalizedInputAmount)} ${assetSymbol} deposited successfully.`,
+            txHash,
           });
         } else {
           // Withdraw directly via the vault's ERC-4626 contract.
           // The Aave API is not needed for withdrawals and is unreliable
           // (returns "Service panicked" errors), so we call the vault directly.
+          let txHash: string | undefined;
           if (withdrawInputMode === "shares") {
             const data = encodeFunctionData({
               abi: ERC4626_REDEEM_ABI,
               functionName: "redeem",
               args: [inputUnits, userAddress, userAddress],
             });
-            await sendAndWait({ to: vaultAddress, data });
+            txHash = await sendAndWait({ to: vaultAddress, data });
           } else {
             const data = encodeFunctionData({
               abi: ERC4626_WITHDRAW_ABI,
               functionName: "withdraw",
               args: [inputUnits, userAddress, userAddress],
             });
-            await sendAndWait({ to: vaultAddress, data });
+            txHash = await sendAndWait({ to: vaultAddress, data });
           }
 
-          toast.success("Withdraw complete", {
+          showTxSuccessToast({
+            title: "Withdraw complete",
             description: `${formatUsd(normalizedInputAmount)} ${assetSymbol} withdrawn successfully.`,
+            txHash,
           });
         }
 
@@ -512,8 +531,15 @@ export function AaveVaultModal({
         onSuccess?.();
         handleClose();
       } catch (err) {
-        const message = err instanceof Error ? err.message : mode === "deposit" ? "Deposit failed" : "Withdraw failed";
+        const message = normalizeTxErrorMessage(
+          err,
+          mode === "deposit" ? "Deposit failed" : "Withdraw failed"
+        );
         setErrorMessage(message);
+        showTxErrorToast({
+          title: mode === "deposit" ? "Deposit failed" : "Withdraw failed",
+          description: message,
+        });
       } finally {
         setIsSubmitting(false);
       }

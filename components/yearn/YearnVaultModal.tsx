@@ -6,7 +6,11 @@ import { useAccount, useWalletClient } from "wagmi";
 import { useAuth } from "@/context/AuthContext";
 import { useWallet, EVMWallet } from "@crossmint/client-sdk-react-ui";
 import { base } from "viem/chains";
-import { toast } from "sonner";
+import {
+  normalizeTxErrorMessage,
+  showTxErrorToast,
+  showTxSuccessToast,
+} from "@/lib/transactionToast";
 
 import { Modal } from "@/components/common/Modal";
 import { CoverPrompt } from "@/components/nexus/CoverPrompt";
@@ -218,10 +222,12 @@ export const YearnVaultModal = ({
       const expectedSharesFormatted =
         expectedShares != null ? formatVaultShares(expectedShares, shareDecimals) : undefined;
 
-      toast.success("Deposit complete", {
+      showTxSuccessToast({
+        title: "Deposit complete",
         description: expectedSharesFormatted
           ? `${depositAssetsFormatted} ${assetSymbol} deposited into ${vaultShort}. Expected ${expectedSharesFormatted} shares.`
           : `${depositAssetsFormatted} ${assetSymbol} deposited into ${vaultShort}.`,
+        txHash: state.txHash,
       });
 
       // Show cover prompt instead of auto-closing
@@ -234,10 +240,12 @@ export const YearnVaultModal = ({
       const expectedWithdrawAssetsFormatted =
         expectedAssets != null ? formatUnits(expectedAssets, assetDecimals) : undefined;
 
-      toast.success("Withdraw complete", {
+      showTxSuccessToast({
+        title: "Withdraw complete",
         description: expectedWithdrawAssetsFormatted
           ? `Redeemed ${redeemedSharesFormatted} shares for ~${expectedWithdrawAssetsFormatted} ${assetSymbol} from ${vaultShort}.`
           : `Redeemed ${redeemedSharesFormatted} shares from ${vaultShort}.`,
+        txHash: state.txHash,
       });
     }
 
@@ -262,6 +270,18 @@ export const YearnVaultModal = ({
     shareDecimals,
     handleClose,
   ]);
+
+  const handledErrorRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    if (state.status !== "error" || !state.error) return;
+    if (handledErrorRef.current === state.error) return;
+    handledErrorRef.current = state.error;
+    showTxErrorToast({
+      title: mode === "deposit" ? "Deposit failed" : "Withdraw failed",
+      description: normalizeTxErrorMessage(state.error, "Transaction failed"),
+    });
+  }, [open, state.status, state.error, mode]);
 
   const validate = useCallback(() => {
     if (!userAddress) {

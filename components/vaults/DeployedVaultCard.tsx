@@ -195,7 +195,9 @@ export const DeployedVaultCard = ({
     functionName: "owner",
     chainId: 8453,
     query: {
-      enabled: !!onChainOwner && !!userAddress &&
+      enabled:
+        !!onChainOwner &&
+        !!userAddress &&
         typeof onChainOwner === "string" &&
         onChainOwner.toLowerCase() !== userAddress.toLowerCase(),
     },
@@ -403,8 +405,10 @@ export const DeployedVaultCard = ({
     !!userAddress &&
     (isApiOwned ||
       vaultFromApi?.owner?.toLowerCase() === userAddress.toLowerCase() ||
-      (typeof onChainOwner === "string" && onChainOwner.toLowerCase() === userAddress.toLowerCase()) ||
-      (typeof smartWalletOwner === "string" && smartWalletOwner.toLowerCase() === userAddress.toLowerCase()));
+      (typeof onChainOwner === "string" &&
+        onChainOwner.toLowerCase() === userAddress.toLowerCase()) ||
+      (typeof smartWalletOwner === "string" &&
+        smartWalletOwner.toLowerCase() === userAddress.toLowerCase()));
 
   const cardActions = useMemo(() => {
     const actions: Array<{
@@ -572,9 +576,10 @@ export const DeployedVaultCard = ({
         <VaultManagementModal
           open={managementModalOpen}
           onClose={() => setManagementModalOpen(false)}
-          vault={vaultFromApi ?? { address: vaultAddress, chainId: 8453 } as unknown as Vault}
+          vault={vaultFromApi ?? ({ address: vaultAddress, chainId: 8453 } as unknown as Vault)}
           feeManagerAddress={
-            typeof onChainOwner === "string" && onChainOwner.toLowerCase() !== userAddress?.toLowerCase()
+            typeof onChainOwner === "string" &&
+            onChainOwner.toLowerCase() !== userAddress?.toLowerCase()
               ? (onChainOwner as Address)
               : undefined
           }

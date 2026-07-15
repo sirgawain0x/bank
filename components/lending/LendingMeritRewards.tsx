@@ -7,6 +7,11 @@ import { useSendTransaction } from "@aave/react/viem";
 
 import { AAVE_TARGET_CHAIN_ID } from "@/lib/config/aave";
 import type { WalletClient } from "viem";
+import {
+  normalizeTxErrorMessage,
+  showTxErrorToast,
+  showTxSuccessToast,
+} from "@/lib/transactionToast";
 
 type LendingMeritRewardsProps = {
   userEvm: ReturnType<typeof evmAddress>;
@@ -33,8 +38,17 @@ export function LendingMeritRewards({
     setMeritError(null);
     const result = await sendTransaction(meritRewards.transaction);
     if (result.isErr()) {
-      setMeritError(result.error?.message ?? "Claim failed");
+      const message = normalizeTxErrorMessage(result.error, "Claim failed");
+      setMeritError(message);
+      showTxErrorToast({ title: "Claim failed", description: message });
+      return;
     }
+    const txHash = typeof result.value === "string" ? result.value : undefined;
+    showTxSuccessToast({
+      title: "Rewards claimed",
+      description: "Merit rewards claimed successfully.",
+      txHash,
+    });
   }, [meritRewards, walletClient, sendTransaction]);
 
   if (!walletAddress) {

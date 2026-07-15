@@ -34,10 +34,18 @@ TABLELAND_TABLE_NAME=transactions_8453_26
 # Required for Coinbase API
 COINBASE_API_KEY_ID=...
 COINBASE_API_KEY_SECRET=...
+
+# Required for Crossmint Auth (server) + webhooks (production)
+CROSSMINT_SERVER_API_KEY=...
+CROSSMINT_WEBHOOK_SECRET=whsec_...
+COCKROACHDB_URL=...
 ```
 
 **Action Items:**
 
+- [ ] Configure Crossmint Console webhook → `https://<domain>/api/webhooks/crossmint` ([guide](./docs/CROSSMINT_WEBHOOKS.md))
+- [ ] Add `CROSSMINT_WEBHOOK_SECRET` to production (and preview if needed)
+- [ ] Subscribe to `wallets.transfer.in`, `wallets.transfer.out`, `wallets.transfer.transaction.update`, and `wallets.experimental.transfer.updated`
 - [ ] Add `TABLELAND_PRIVATE_KEY` to production environment
 - [ ] Verify wallet has sufficient ETH on Base for gas fees
 - [ ] Confirm `TABLELAND_TABLE_NAME` is set correctly

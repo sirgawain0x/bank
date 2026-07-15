@@ -9,6 +9,12 @@ import { UnlockPrompt } from "@/components/unlock/UnlockPrompt";
 type PremiumGuardProps = {
   requiredTier: MembershipTier;
   children: ReactNode;
+  /**
+   * When true, renders nothing if the user lacks the required tier
+   * (instead of an UnlockPrompt). Use on secondary guards sharing a page
+   * with another PremiumGuard so the prompt box is not duplicated.
+   */
+  silent?: boolean;
 };
 
 /**
@@ -16,10 +22,11 @@ type PremiumGuardProps = {
  * Uses TIER_PRIORITY to compare the user's tier against the required tier.
  * A Brand member (priority 3) can access Creator-gated content (priority 1).
  */
-export function PremiumGuard({ requiredTier, children }: PremiumGuardProps) {
+export function PremiumGuard({ requiredTier, children, silent = false }: PremiumGuardProps) {
   const { tier, isLoading } = useMembership();
 
   if (isLoading) {
+    if (silent) return null;
     return (
       <section className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white/70 p-6 text-sm text-slate-600">
         <span className="animate-pulse text-slate-500">Checking membership access…</span>
@@ -31,6 +38,7 @@ export function PremiumGuard({ requiredTier, children }: PremiumGuardProps) {
   const requiredPriority = TIER_PRIORITY[requiredTier];
 
   if (userPriority < requiredPriority) {
+    if (silent) return null;
     return <UnlockPrompt currentTier={tier} />;
   }
 

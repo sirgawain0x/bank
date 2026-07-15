@@ -40,7 +40,11 @@ import {
 import { shortenAddress } from "@/utils/shortenAddress";
 import { AAVE_TARGET_CHAIN_ID } from "@/lib/config/aave";
 import { isAddress, type WalletClient } from "viem";
-import { toast } from "sonner";
+import {
+  normalizeTxErrorMessage,
+  showTxErrorToast,
+  showTxSuccessToast,
+} from "@/lib/transactionToast";
 import type {
   Market,
   Reserve,
@@ -364,7 +368,7 @@ function LendingContent({
         )}
       </PremiumGuard>
 
-      <PremiumGuard requiredTier="Creative Creator">
+      <PremiumGuard requiredTier="Creative Creator" silent>
         <LendingAdvancedSection
           marketAddressEvm={marketAddressEvm}
           userEvm={userEvm}
@@ -775,21 +779,23 @@ function CollateralToggle({
       if (result.isErr()) {
         const message = result.error?.message ?? "Toggle failed";
         setErrorMsg(message);
-        toast.error("Collateral update failed", { description: message });
+        showTxErrorToast({ title: "Collateral update failed", description: message });
         return;
       }
       const plan = result.value;
-      await sendAndWait(plan);
-      toast.success("Collateral updated", {
+      const txHash = await sendAndWait(plan);
+      showTxSuccessToast({
+        title: "Collateral updated",
         description: position.isCollateral
           ? "USDC is no longer used as collateral."
           : "USDC is now used as collateral.",
+        txHash,
       });
       onSuccess();
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Collateral update failed";
+      const message = normalizeTxErrorMessage(err, "Collateral update failed");
       setErrorMsg(message);
-      toast.error("Collateral update failed", { description: message });
+      showTxErrorToast({ title: "Collateral update failed", description: message });
     } finally {
       setIsToggling(false);
     }
@@ -923,28 +929,36 @@ function SupplyModal({
         });
 
         if (planResult.isErr()) {
-          setErrorMessage(planResult.error?.message ?? "Supply failed");
+          const message = planResult.error?.message ?? "Supply failed";
+          setErrorMessage(message);
+          showTxErrorToast({ title: "Supply failed", description: message });
           return;
         }
         const plan = planResult.value;
         if (plan.__typename === "InsufficientBalanceError") {
-          setErrorMessage(`Insufficient balance. Required: ${plan.required?.value} USDC.`);
+          const message = `Insufficient balance. Required: ${plan.required?.value} USDC.`;
+          setErrorMessage(message);
+          showTxErrorToast({ title: "Supply failed", description: message });
           return;
         }
+        let txHash: string | undefined;
         if (plan.__typename === "TransactionRequest") {
-          await sendAndWait(plan);
+          txHash = await sendAndWait(plan);
         } else {
           await sendAndWait(plan.approval);
-          await sendAndWait(plan.originalTransaction);
+          txHash = await sendAndWait(plan.originalTransaction);
         }
-        toast.success("Supply complete", {
+        showTxSuccessToast({
+          title: "Supply complete",
           description: `${formatUsd(parsed)} USDC supplied successfully.`,
+          txHash,
         });
         onSuccess();
         onClose();
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Supply failed";
+        const message = normalizeTxErrorMessage(err, "Supply failed");
         setErrorMessage(message);
+        showTxErrorToast({ title: "Supply failed", description: message });
       } finally {
         setIsSubmitting(false);
       }
@@ -1098,31 +1112,39 @@ function WithdrawModal({
           chainId: AAVE_TARGET_CHAIN_ID,
         });
         if (planResult.isErr()) {
-          setErrorMessage(planResult.error?.message ?? "Withdraw failed");
+          const message = planResult.error?.message ?? "Withdraw failed";
+          setErrorMessage(message);
+          showTxErrorToast({ title: "Withdraw failed", description: message });
           return;
         }
         const plan = planResult.value;
         if (plan.__typename === "InsufficientBalanceError") {
-          setErrorMessage(`Insufficient balance. Required: ${plan.required?.value} USDC.`);
+          const message = `Insufficient balance. Required: ${plan.required?.value} USDC.`;
+          setErrorMessage(message);
+          showTxErrorToast({ title: "Withdraw failed", description: message });
           return;
         }
+        let txHash: string | undefined;
         if (plan.__typename === "TransactionRequest") {
-          await sendAndWait(plan);
+          txHash = await sendAndWait(plan);
         } else {
           await sendAndWait(plan.approval);
-          await sendAndWait(plan.originalTransaction);
+          txHash = await sendAndWait(plan.originalTransaction);
         }
         const amountLabel = useMax
           ? (supplyPosition?.balance?.amount?.value ?? "max")
           : String(parsed);
-        toast.success("Withdraw complete", {
+        showTxSuccessToast({
+          title: "Withdraw complete",
           description: `${formatUsd(amountLabel)} USDC withdrawn successfully.`,
+          txHash,
         });
         onSuccess();
         onClose();
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Withdraw failed";
+        const message = normalizeTxErrorMessage(err, "Withdraw failed");
         setErrorMessage(message);
+        showTxErrorToast({ title: "Withdraw failed", description: message });
       } finally {
         setIsSubmitting(false);
       }
@@ -1286,28 +1308,36 @@ function BorrowModal({
           chainId: AAVE_TARGET_CHAIN_ID,
         });
         if (planResult.isErr()) {
-          setErrorMessage(planResult.error?.message ?? "Borrow failed");
+          const message = planResult.error?.message ?? "Borrow failed";
+          setErrorMessage(message);
+          showTxErrorToast({ title: "Borrow failed", description: message });
           return;
         }
         const plan = planResult.value;
         if (plan.__typename === "InsufficientBalanceError") {
-          setErrorMessage(`Insufficient balance. Required: ${plan.required?.value} USDC.`);
+          const message = `Insufficient balance. Required: ${plan.required?.value} USDC.`;
+          setErrorMessage(message);
+          showTxErrorToast({ title: "Borrow failed", description: message });
           return;
         }
+        let txHash: string | undefined;
         if (plan.__typename === "TransactionRequest") {
-          await sendAndWait(plan);
+          txHash = await sendAndWait(plan);
         } else {
           await sendAndWait(plan.approval);
-          await sendAndWait(plan.originalTransaction);
+          txHash = await sendAndWait(plan.originalTransaction);
         }
-        toast.success("Borrow complete", {
+        showTxSuccessToast({
+          title: "Borrow complete",
           description: `${formatUsd(parsed)} USDC borrowed successfully.`,
+          txHash,
         });
         onSuccess();
         onClose();
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Borrow failed";
+        const message = normalizeTxErrorMessage(err, "Borrow failed");
         setErrorMessage(message);
+        showTxErrorToast({ title: "Borrow failed", description: message });
       } finally {
         setIsSubmitting(false);
       }
@@ -1507,29 +1537,37 @@ function RepayModal({
           ...(repayForMode === "other" && otherBorrowerEvm && { onBehalfOf: otherBorrowerEvm }),
         });
         if (planResult.isErr()) {
-          setErrorMessage(planResult.error?.message ?? "Repay failed");
+          const message = planResult.error?.message ?? "Repay failed";
+          setErrorMessage(message);
+          showTxErrorToast({ title: "Repay failed", description: message });
           return;
         }
         const plan = planResult.value;
         if (plan.__typename === "InsufficientBalanceError") {
-          setErrorMessage(`Insufficient balance. Required: ${plan.required?.value} USDC.`);
+          const message = `Insufficient balance. Required: ${plan.required?.value} USDC.`;
+          setErrorMessage(message);
+          showTxErrorToast({ title: "Repay failed", description: message });
           return;
         }
+        let txHash: string | undefined;
         if (plan.__typename === "TransactionRequest") {
-          await sendAndWait(plan);
+          txHash = await sendAndWait(plan);
         } else {
           await sendAndWait(plan.approval);
-          await sendAndWait(plan.originalTransaction);
+          txHash = await sendAndWait(plan.originalTransaction);
         }
         const amountLabel = useMax ? debt : String(parsed);
-        toast.success("Repay complete", {
+        showTxSuccessToast({
+          title: "Repay complete",
           description: `${formatUsd(amountLabel)} USDC repaid successfully.`,
+          txHash,
         });
         onSuccess();
         onClose();
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Repay failed";
+        const message = normalizeTxErrorMessage(err, "Repay failed");
         setErrorMessage(message);
+        showTxErrorToast({ title: "Repay failed", description: message });
       } finally {
         setIsSubmitting(false);
       }

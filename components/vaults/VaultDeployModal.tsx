@@ -16,9 +16,12 @@ import { useWallet, EVMWallet } from "@crossmint/client-sdk-react-ui";
 import { createWalletClient, custom, type WalletClient } from "viem";
 import { base, baseSepolia } from "viem/chains";
 
-import { toast } from "sonner";
-
 import { Modal } from "@/components/common/Modal";
+import {
+  normalizeTxErrorMessage,
+  showTxErrorToast,
+  showTxSuccessToast,
+} from "@/lib/transactionToast";
 import { USDC_DECIMALS } from "@/lib/config/aave";
 import { formatPercent } from "@/lib/formatters";
 import { useMembership } from "@/context/MembershipContext";
@@ -52,7 +55,15 @@ type SubmitState = {
 };
 
 function isTransientError(message: string): boolean {
-  const patterns = ["panicked", "service unavailable", "502", "503", "504", "fetch failed", "network"];
+  const patterns = [
+    "panicked",
+    "service unavailable",
+    "502",
+    "503",
+    "504",
+    "fetch failed",
+    "network",
+  ];
   return patterns.some((p) => message.toLowerCase().includes(p));
 }
 
@@ -147,7 +158,9 @@ export function VaultDeployModal({
               // Proxy read-only RPC calls (eth_call, eth_estimateGas, eth_getBalance, etc.)
               // through the public client so Aave SDK can prepare transactions
               if (publicClient) {
-                return publicClient.request({ method, params } as Parameters<typeof publicClient.request>[0]);
+                return publicClient.request({ method, params } as Parameters<
+                  typeof publicClient.request
+                >[0]);
               }
 
               throw new Error(`Method ${method} not supported: no public client available`);
@@ -172,7 +185,6 @@ export function VaultDeployModal({
   const [feeReceiverAddress, setFeeReceiverAddress] = useState("");
   // 0.01 USDC permanent lock required by Aave to initialize the vault
   const [initialDeposit, setInitialDeposit] = useState(0.01);
-
 
   // Initialize recipient input based on membership status
   // If no membership or still loading: pre-fill with Creative address and 5%
@@ -345,176 +357,212 @@ export function VaultDeployModal({
       setSubmitState({ status: "deploying" });
 
       try {
-      const request: VaultDeployRequest = {
-        market: evmAddress(market.address),
-        chainId: market.chain.chainId,
-        underlyingToken: evmAddress(reserve.underlyingToken.address),
-        deployer: evmAddress(activeAddress),
-        shareName,
-        shareSymbol,
-        initialFee: bigDecimal(performanceFee),
-        initialLockDeposit: bigDecimal(initialDeposit),
-        recipients,
-      };
+        const request: VaultDeployRequest = {
+          market: evmAddress(market.address),
+          chainId: market.chain.chainId,
+          underlyingToken: evmAddress(reserve.underlyingToken.address),
+          deployer: evmAddress(activeAddress),
+          shareName,
+          shareSymbol,
+          initialFee: bigDecimal(performanceFee),
+          initialLockDeposit: bigDecimal(initialDeposit),
+          recipients,
+        };
 
-      const planResult = await deployVault(request);
-      if (planResult.isErr()) {
-        const msg = planResult.error.message;
-        setSubmitState({ status: "error", message: msg, retryable: isTransientError(msg) });
-        return;
-      }
-
-      const plan = planResult.value;
-
-      if (plan.__typename === "InsufficientBalanceError") {
-        setSubmitState({
-          status: "error",
-          message: `Insufficient balance. Required: ${plan.required.value} ${assetSymbol}.`,
-        });
-        return;
-      }
-
-      let transactionResult = null;
-
-      if (plan.__typename === "TransactionRequest") {
-        transactionResult = await sendTransaction(plan);
-      } else if (plan.__typename === "ApprovalRequired") {
-        setSubmitState({ status: "approval" });
-        const approvalResult = await sendTransaction(plan.approval);
-        if (approvalResult.isErr()) {
-          setSubmitState({
-            status: "error",
-            message: approvalResult.error.message,
-          });
+        const planResult = await deployVault(request);
+        if (planResult.isErr()) {
+          const msg = planResult.error.message;
+          setSubmitState({ status: "error", message: msg, retryable: isTransientError(msg) });
+          showTxErrorToast({ title: "Vault deployment failed", description: msg });
           return;
         }
 
-        setSubmitState({ status: "deploying" });
-        transactionResult = await sendTransaction(plan.originalTransaction);
-      } else {
-        setSubmitState({
-          status: "error",
-          message: "Unsupported execution plan returned by Aave SDK.",
-        });
-        return;
-      }
+        const plan = planResult.value;
 
-      if (transactionResult.isErr()) {
-        setSubmitState({
-          status: "error",
-          message: transactionResult.error.message,
-        });
-        return;
-      }
-
-      const txHash = transactionResult.value;
-
-      // Wait for transaction receipt to get the vault address
-      setSubmitState({
-        status: "deploying",
-        txHash,
-        message: "Waiting for transaction confirmation...",
-      });
-
-      try {
-        // Wait for the transaction to be mined using public client
-        if (publicClient) {
-          const receipt = await publicClient.waitForTransactionReceipt({
-            hash: txHash as `0x${string}`,
-            timeout: 120_000, // 2 minute timeout
+        if (plan.__typename === "InsufficientBalanceError") {
+          const message = `Insufficient balance. Required: ${plan.required.value} ${assetSymbol}.`;
+          setSubmitState({
+            status: "error",
+            message,
           });
+          showTxErrorToast({ title: "Vault deployment failed", description: message });
+          return;
+        }
 
-          // Try to extract vault address from transaction receipt
-          // Aave vaults are deployed via factory, so the address is in event logs
-          let vaultAddress: string | undefined;
+        let transactionResult = null;
 
-          if (receipt.contractAddress) {
-            vaultAddress = receipt.contractAddress;
-          } else if (receipt.logs && receipt.logs.length > 0) {
-            // Look for VaultDeployed event: VaultDeployed(address indexed vault, address indexed implementation, address indexed underlying, ...)
-            // Event signature: 0xa225f10988fd8a4e80df4ed9fe9ddce048ffc02e51061eb4ceb5beb0c2ec4f2a
-            const VAULT_DEPLOYED_EVENT_SIGNATURE =
-              "0xa225f10988fd8a4e80df4ed9fe9ddce048ffc02e51061eb4ceb5beb0c2ec4f2a";
+        if (plan.__typename === "TransactionRequest") {
+          transactionResult = await sendTransaction(plan);
+        } else if (plan.__typename === "ApprovalRequired") {
+          setSubmitState({ status: "approval" });
+          const approvalResult = await sendTransaction(plan.approval);
+          if (approvalResult.isErr()) {
+            const message = approvalResult.error.message;
+            setSubmitState({
+              status: "error",
+              message,
+            });
+            showTxErrorToast({ title: "Vault deployment failed", description: message });
+            return;
+          }
 
-            for (const log of receipt.logs) {
-              // Check if this is a VaultDeployed event
-              if (
-                log.topics[0]?.toLowerCase() === VAULT_DEPLOYED_EVENT_SIGNATURE.toLowerCase() &&
-                log.topics.length >= 4
-              ) {
-                // Second topic (index 1) is the vault address
-                const topic1 = log.topics[1];
-                const topic3 = log.topics[3];
+          setSubmitState({ status: "deploying" });
+          transactionResult = await sendTransaction(plan.originalTransaction);
+        } else {
+          const message = "Unsupported execution plan returned by Aave SDK.";
+          setSubmitState({
+            status: "error",
+            message,
+          });
+          showTxErrorToast({ title: "Vault deployment failed", description: message });
+          return;
+        }
 
-                if (topic1 && topic3 && reserve) {
-                  const vaultAddr = `0x${topic1.slice(-40)}`;
-                  const underlying = `0x${topic3.slice(-40)}`;
-                  const expectedUnderlying = reserve.underlyingToken.address.toLowerCase();
-                  if (underlying.toLowerCase() === expectedUnderlying) {
-                    vaultAddress = vaultAddr;
-                    break;
+        if (transactionResult.isErr()) {
+          const message = transactionResult.error.message;
+          setSubmitState({
+            status: "error",
+            message,
+          });
+          showTxErrorToast({ title: "Vault deployment failed", description: message });
+          return;
+        }
+
+        const txHash = transactionResult.value;
+
+        // Wait for transaction receipt to get the vault address
+        setSubmitState({
+          status: "deploying",
+          txHash,
+          message: "Waiting for transaction confirmation...",
+        });
+
+        try {
+          // Wait for the transaction to be mined using public client
+          if (publicClient) {
+            const receipt = await publicClient.waitForTransactionReceipt({
+              hash: txHash as `0x${string}`,
+              timeout: 120_000, // 2 minute timeout
+            });
+
+            // Try to extract vault address from transaction receipt
+            // Aave vaults are deployed via factory, so the address is in event logs
+            let vaultAddress: string | undefined;
+
+            if (receipt.contractAddress) {
+              vaultAddress = receipt.contractAddress;
+            } else if (receipt.logs && receipt.logs.length > 0) {
+              // Look for VaultDeployed event: VaultDeployed(address indexed vault, address indexed implementation, address indexed underlying, ...)
+              // Event signature: 0xa225f10988fd8a4e80df4ed9fe9ddce048ffc02e51061eb4ceb5beb0c2ec4f2a
+              const VAULT_DEPLOYED_EVENT_SIGNATURE =
+                "0xa225f10988fd8a4e80df4ed9fe9ddce048ffc02e51061eb4ceb5beb0c2ec4f2a";
+
+              for (const log of receipt.logs) {
+                // Check if this is a VaultDeployed event
+                if (
+                  log.topics[0]?.toLowerCase() === VAULT_DEPLOYED_EVENT_SIGNATURE.toLowerCase() &&
+                  log.topics.length >= 4
+                ) {
+                  // Second topic (index 1) is the vault address
+                  const topic1 = log.topics[1];
+                  const topic3 = log.topics[3];
+
+                  if (topic1 && topic3 && reserve) {
+                    const vaultAddr = `0x${topic1.slice(-40)}`;
+                    const underlying = `0x${topic3.slice(-40)}`;
+                    const expectedUnderlying = reserve.underlyingToken.address.toLowerCase();
+                    if (underlying.toLowerCase() === expectedUnderlying) {
+                      vaultAddress = vaultAddr;
+                      break;
+                    }
                   }
                 }
               }
             }
-          }
 
-          setSubmitState({
-            status: "success",
-            txHash,
-            vaultAddress,
-            message: vaultAddress ? `Vault deployed successfully!` : "Vault deployment confirmed!",
-          });
+            setSubmitState({
+              status: "success",
+              txHash,
+              vaultAddress,
+              message: vaultAddress
+                ? `Vault deployed successfully!`
+                : "Vault deployment confirmed!",
+            });
 
-          // If vault address found, save it to localStorage
-          if (vaultAddress && typeof window !== "undefined") {
-            try {
-              const stored = localStorage.getItem("deployedVaults");
-              const existingVaults = stored ? JSON.parse(stored) : [];
+            // If vault address found, save it to localStorage
+            if (vaultAddress && typeof window !== "undefined") {
+              try {
+                const stored = localStorage.getItem("deployedVaults");
+                const existingVaults = stored ? JSON.parse(stored) : [];
 
-              // Check if vault already exists
-              const exists = existingVaults.some(
-                (v: { address: string }) => v.address.toLowerCase() === vaultAddress.toLowerCase()
-              );
-
-              if (!exists) {
-                const newVault = {
-                  address: vaultAddress.toLowerCase(),
-                  name: shareName || undefined,
-                  transactionHash: txHash,
-                  performanceFee: performanceFee, // Store performance fee for net APR calculation
-                };
-                localStorage.setItem(
-                  "deployedVaults",
-                  JSON.stringify([...existingVaults, newVault])
+                // Check if vault already exists
+                const exists = existingVaults.some(
+                  (v: { address: string }) => v.address.toLowerCase() === vaultAddress.toLowerCase()
                 );
-              }
-            } catch (error) {
-              console.warn("Could not save vault to localStorage:", error);
-            }
-          }
 
-          toast.success("Vault deployed", {
-            description: vaultAddress
-              ? `Vault is live at ${shortenAddress(vaultAddress)}. It will appear in your list below.`
-              : "Transaction confirmed. View on Basescan for vault address.",
-          });
-          onSuccess?.(txHash, vaultAddress);
-          if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
-          closeTimeoutRef.current = setTimeout(() => {
-            closeTimeoutRef.current = null;
-            handleCloseRef.current();
-          }, 2000);
-        } else {
-          // Fallback if public client not available
+                if (!exists) {
+                  const newVault = {
+                    address: vaultAddress.toLowerCase(),
+                    name: shareName || undefined,
+                    transactionHash: txHash,
+                    performanceFee: performanceFee, // Store performance fee for net APR calculation
+                  };
+                  localStorage.setItem(
+                    "deployedVaults",
+                    JSON.stringify([...existingVaults, newVault])
+                  );
+                }
+              } catch (error) {
+                console.warn("Could not save vault to localStorage:", error);
+              }
+            }
+
+            showTxSuccessToast({
+              title: "Vault deployed",
+              description: vaultAddress
+                ? `Vault is live at ${shortenAddress(vaultAddress)}. It will appear in your list below.`
+                : "Transaction confirmed. View on Basescan for vault address.",
+              txHash,
+            });
+            onSuccess?.(txHash, vaultAddress);
+            if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
+            closeTimeoutRef.current = setTimeout(() => {
+              closeTimeoutRef.current = null;
+              handleCloseRef.current();
+            }, 2000);
+          } else {
+            // Fallback if public client not available
+            setSubmitState({
+              status: "success",
+              txHash,
+              message:
+                "Vault deployment transaction submitted. Check Basescan to find the vault address in the transaction logs.",
+            });
+            showTxSuccessToast({
+              title: "Vault deployed",
+              description: "Transaction confirmed. View on Basescan for vault address.",
+              txHash,
+            });
+            onSuccess?.(txHash, undefined);
+            if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
+            closeTimeoutRef.current = setTimeout(() => {
+              closeTimeoutRef.current = null;
+              handleCloseRef.current();
+            }, 2000);
+          }
+        } catch (error) {
+          // If we can't get the receipt, still show success with transaction hash
+          console.warn("Could not get transaction receipt:", error);
           setSubmitState({
             status: "success",
             txHash,
             message:
-              "Vault deployment transaction submitted. Check Basescan to find the vault address in the transaction logs.",
+              "Vault deployment transaction submitted. Check Basescan to find the vault address.",
           });
-          toast.success("Vault deployed", {
-            description: "Transaction confirmed. View on Basescan for vault address.",
+          showTxSuccessToast({
+            title: "Vault deployed",
+            description: "Transaction submitted. View on Basescan to find the vault address.",
+            txHash,
           });
           onSuccess?.(txHash, undefined);
           if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
@@ -523,35 +571,15 @@ export function VaultDeployModal({
             handleCloseRef.current();
           }, 2000);
         }
-      } catch (error) {
-        // If we can't get the receipt, still show success with transaction hash
-        console.warn("Could not get transaction receipt:", error);
-        setSubmitState({
-          status: "success",
-          txHash,
-          message:
-            "Vault deployment transaction submitted. Check Basescan to find the vault address.",
-        });
-        toast.success("Vault deployed", {
-          description: "Transaction submitted. View on Basescan to find the vault address.",
-        });
-        onSuccess?.(txHash, undefined);
-        if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
-        closeTimeoutRef.current = setTimeout(() => {
-          closeTimeoutRef.current = null;
-          handleCloseRef.current();
-        }, 2000);
-      }
       } catch (outerError) {
-        // Catch any unhandled errors from deployVault/sendTransaction that throw
-        // instead of returning an error result (e.g. Crossmint wallet adapter errors)
-        const message = outerError instanceof Error ? outerError.message : String(outerError);
+        const message = normalizeTxErrorMessage(outerError, "Deployment failed");
         console.error("Vault deployment failed:", outerError);
         setSubmitState({
           status: "error",
           message: `Deployment failed: ${message}`,
           retryable: isTransientError(message),
         });
+        showTxErrorToast({ title: "Vault deployment failed", description: message });
       }
     },
     [
@@ -711,17 +739,18 @@ export function VaultDeployModal({
               </span>
             </label>
             <label className="flex flex-col gap-1">
-              <span className="text-xs font-medium uppercase text-slate-500">
+              <span className="text-xs font-medium text-slate-500 uppercase">
                 Initial Lock Deposit ({assetSymbol})
               </span>
               <input
                 type="text"
                 value={`0.01 ${assetSymbol}`}
                 disabled
-                className="rounded-lg border border-slate-300 bg-slate-100 px-3 py-2 text-slate-500 cursor-not-allowed"
+                className="cursor-not-allowed rounded-lg border border-slate-300 bg-slate-100 px-3 py-2 text-slate-500"
               />
               <p className="mt-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-800">
-                0.01 {assetSymbol} is permanently locked in the vault and cannot be withdrawn. This is required by the Aave protocol to initialize the vault.
+                0.01 {assetSymbol} is permanently locked in the vault and cannot be withdrawn. This
+                is required by the Aave protocol to initialize the vault.
               </p>
             </label>
           </div>

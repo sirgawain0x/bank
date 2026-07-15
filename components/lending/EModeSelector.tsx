@@ -4,9 +4,14 @@ import { useState, useMemo, useCallback } from "react";
 import { useUserEMode, evmAddress, bigDecimal, type Market } from "@aave/react";
 import { useSendTransaction } from "@aave/react/viem";
 import { usePublicClient } from "wagmi";
-import { toast } from "sonner";
 import { useAaveWalletClient } from "@/hooks/useAaveWalletClient";
 import { AAVE_TARGET_CHAIN_ID } from "@/lib/config/aave";
+import {
+  extractTxHash,
+  normalizeTxErrorMessage,
+  showTxErrorToast,
+  showTxSuccessToast,
+} from "@/lib/transactionToast";
 
 interface EModeSelectorProps {
   market: Market;
@@ -57,24 +62,34 @@ export function EModeSelector({
         });
 
         if (result.isErr()) {
-          toast.error("E-Mode update failed", {
+          showTxErrorToast({
+            title: "E-Mode update failed",
             description: result.error.message,
           });
           return;
         }
 
         const plan = result.value;
-        await sendTransaction(plan as any);
+        const txResult = await sendTransaction(plan as any);
+        if (txResult.isErr()) {
+          const message = txResult.error?.message ?? "E-Mode update failed";
+          showTxErrorToast({ title: "E-Mode update failed", description: message });
+          return;
+        }
 
         setSelectedCategory(categoryId);
-        toast.success(
-          categoryId
+        showTxSuccessToast({
+          title: "E-Mode updated",
+          description: categoryId
             ? `E-Mode enabled: ${categories.find((c: any) => c.id === categoryId)?.label ?? "Category " + categoryId}`
-            : "E-Mode disabled"
-        );
-      } catch (err: any) {
-        toast.error("Transaction failed", {
-          description: err.message || "Failed to update E-Mode",
+            : "E-Mode disabled",
+          txHash: extractTxHash(txResult.value),
+        });
+      } catch (err: unknown) {
+        const message = normalizeTxErrorMessage(err, "Failed to update E-Mode");
+        showTxErrorToast({
+          title: "Transaction failed",
+          description: message,
         });
       } finally {
         setIsSubmitting(false);

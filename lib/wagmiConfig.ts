@@ -14,6 +14,9 @@ const DATA_SUFFIX = BUILDER_CODE ? Attribution.toDataSuffix({ codes: [BUILDER_CO
 
 const configuredChain = process.env.NEXT_PUBLIC_CHAIN_ID;
 
+const APP_URL =
+  process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || "https://finance.creativeplatform.xyz";
+
 export const appChain = (() => {
   // Only use base-sepolia when explicitly configured; default to base mainnet
   if (configuredChain === "base-sepolia") {
@@ -142,8 +145,8 @@ const connectors = [
           metadata: {
             name: "Creative Bank",
             description: "Creative Bank DeFi access",
-            url: "https://creativeplatform.xyz",
-            icons: ["https://creativeplatform.xyz/icon.png"],
+            url: APP_URL,
+            icons: [`${APP_URL}/icon.png`],
           },
         }),
       ]

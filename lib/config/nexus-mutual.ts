@@ -28,6 +28,33 @@ export const NEXUS_MAX_COVER_PERIOD_DAYS = 365;
 export const NEXUS_MIN_COVER_USD = 100;
 
 /**
+ * Safely coerce a value (which may be a number, decimal string, or integer
+ * string) into a BigInt of base units. The Nexus SDK occasionally returns
+ * fractional values (e.g. 9999.8) for premium/amount fields; calling BigInt()
+ * directly on those throws "cannot be converted to a BigInt". We floor the
+ * value to the nearest integer to keep the flow resilient.
+ */
+export function toBigIntSafe(value: string | number | bigint | undefined | null): bigint {
+  if (value == null) return 0n;
+  if (typeof value === "bigint") return value;
+  // Numbers must be handled before String(): large wei values (>= 1e21)
+  // stringify to scientific notation (e.g. "1e+21"), which BigInt() rejects.
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) return 0n;
+    return BigInt(Math.floor(value));
+  }
+  const str = value.trim();
+  if (str === "") return 0n;
+  // Drop any fractional component: base units must be integers.
+  const integerPart = str.split(".")[0];
+  try {
+    return BigInt(integerPart === "" || integerPart === "-" ? "0" : integerPart);
+  } catch {
+    return 0n;
+  }
+}
+
+/**
  * CoverAsset enum values used by Nexus Mutual API/contracts.
  * Align with Pool.getAssets / SDK CoverAsset.
  */

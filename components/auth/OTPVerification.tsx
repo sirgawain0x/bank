@@ -32,6 +32,8 @@ export function OTPVerification({
   const [resendCooldown, setResendCooldown] = useState(0);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   // Focus first input on mount
   useEffect(() => {
     inputRefs.current[0]?.focus();
@@ -43,6 +45,18 @@ export function OTPVerification({
     const timer = setTimeout(() => setResendCooldown((c) => c - 1), 1000);
     return () => clearTimeout(timer);
   }, [resendCooldown]);
+
+  const submit = async (fullCode: string) => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      await onVerify(fullCode);
+    } catch {
+      // Error surfaced via parent `error` prop
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleChange = (index: number, value: string) => {
     // Only accept digits
@@ -58,7 +72,7 @@ export function OTPVerification({
 
     // Auto-submit when all digits filled
     if (digit && index === CODE_LENGTH - 1 && next.every((d) => d)) {
-      onVerify(next.join(""));
+      submit(next.join(""));
     }
   };
 
@@ -83,7 +97,7 @@ export function OTPVerification({
     inputRefs.current[focusIndex]?.focus();
 
     if (next.every((d) => d)) {
-      onVerify(next.join(""));
+      submit(next.join(""));
     }
   };
 
@@ -126,13 +140,16 @@ export function OTPVerification({
 
       {error && <p className="text-center text-sm text-red-700">{error}</p>}
 
-      <PrimaryButton onClick={() => onVerify(code)} disabled={!isComplete || isVerifying}>
-        {isVerifying ? "Verifying..." : "Verify"}
+      <PrimaryButton
+        onClick={() => submit(code)}
+        disabled={!isComplete || isVerifying || isSubmitting}
+      >
+        {isVerifying || isSubmitting ? "Verifying..." : "Verify"}
       </PrimaryButton>
 
       <button
         onClick={handleResend}
-        disabled={resendCooldown > 0 || isVerifying}
+        disabled={resendCooldown > 0 || isVerifying || isSubmitting}
         className="text-sm text-blue-700 hover:underline disabled:text-gray-900 disabled:no-underline"
       >
         {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : "Resend code"}

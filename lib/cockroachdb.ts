@@ -37,22 +37,69 @@ export function getPool(): Pool {
  * Safe to call multiple times — all statements use IF NOT EXISTS.
  *
  * Schema design:
- * - `users` table: Stytch user_id is the primary key, linked to wallet address
+ * - `users` table: Crossmint user_id is the primary key, linked to wallet address
  * - `transactions` table: Ledger entries keyed by wallet_address for lookups
  */
 export async function runMigration(): Promise<void> {
   const db = getPool();
 
-  // Users table — Stytch user ID is the primary identity
+  const renameColumnIfNeeded = async (
+    table: string,
+    fromColumn: string,
+    toColumn: string
+  ): Promise<void> => {
+    const { rows } = await db.query<{ from_exists: boolean; to_exists: boolean }>(
+      `SELECT
+        EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_schema = 'public' AND table_name = $1 AND column_name = $2
+        ) AS from_exists,
+        EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_schema = 'public' AND table_name = $1 AND column_name = $3
+        ) AS to_exists`,
+      [table, fromColumn, toColumn]
+    );
+    const { from_exists, to_exists } = rows[0] ?? {};
+    if (from_exists && !to_exists) {
+      await db.query(
+        `ALTER TABLE "${table}" RENAME COLUMN "${fromColumn}" TO "${toColumn}"`
+      );
+    }
+  };
+
+  // Users table — Crossmint user ID is the primary identity
   await db.query(`
     CREATE TABLE IF NOT EXISTS users (
-      stytch_user_id TEXT PRIMARY KEY,
+      crossmint_user_id TEXT PRIMARY KEY,
       wallet_address TEXT NOT NULL,
       email TEXT,
       phone_number TEXT,
+      phone_number_verified_at TIMESTAMPTZ,
       membership_tier TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+  `);
+
+  // Migrate legacy Stytch column name if present (CockroachDB rejects ALTER in DO blocks)
+  await renameColumnIfNeeded("users", "stytch_user_id", "crossmint_user_id");
+
+  await db.query(`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_number_verified_at TIMESTAMPTZ;
+  `);
+
+  await db.query(`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMPTZ;
+  `);
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS phone_otp_challenges (
+      crossmint_user_id TEXT PRIMARY KEY,
+      phone_number TEXT NOT NULL,
+      code_hash TEXT NOT NULL,
+      expires_at TIMESTAMPTZ NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
   `);
 
@@ -61,12 +108,26 @@ export async function runMigration(): Promise<void> {
     ON users (wallet_address);
   `);
 
+  await db.query(`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS crossmint_user_id TEXT;
+  `);
+
+  await db.query(`
+    ALTER TABLE users ALTER COLUMN wallet_address DROP NOT NULL;
+  `);
+
+  await db.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_users_crossmint_user_id
+    ON users (crossmint_user_id)
+    WHERE crossmint_user_id IS NOT NULL;
+  `);
+
   // Transactions table — the bank ledger
   await db.query(`
     CREATE TABLE IF NOT EXISTS transactions (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       wallet_address TEXT NOT NULL,
-      stytch_user_id TEXT,
+      crossmint_user_id TEXT,
       transaction_id TEXT NOT NULL UNIQUE,
       type TEXT NOT NULL DEFAULT 'offramp',
       status TEXT NOT NULL DEFAULT 'unknown',
@@ -89,10 +150,11 @@ export async function runMigration(): Promise<void> {
     ON transactions (wallet_address);
   `);
 
-  // Secondary lookup: by Stytch user ID
+  await renameColumnIfNeeded("transactions", "stytch_user_id", "crossmint_user_id");
+
   await db.query(`
-    CREATE INDEX IF NOT EXISTS idx_transactions_stytch_user_id
-    ON transactions (stytch_user_id);
+    CREATE INDEX IF NOT EXISTS idx_transactions_crossmint_user_id
+    ON transactions (crossmint_user_id);
   `);
 
   await db.query(`

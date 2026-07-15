@@ -9,7 +9,7 @@ interface ModalProps {
   showBackButton?: boolean;
   onBack?: () => void;
   className?: string;
-  title?: string;
+  title?: ReactNode;
   showCloseButton?: boolean;
 }
 

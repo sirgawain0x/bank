@@ -20,6 +20,18 @@ importers:
       '@crossmint/client-sdk-react-ui':
         specifier: ^4.1.5
         version: 4.1.5(@babel/core@7.28.3)(@babel/preset-env@7.28.3(@babel/core@7.28.3))(@react-native-async-storage/async-storage@2.2.0(react-native@0.74.0(@babel/core@7.28.3)(@babel/preset-env@7.28.3(@babel/core@7.28.3))(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.5)(utf-8-validate@5.0.10)))(@solana/web3.js@1.98.1(bufferutil@4.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10))(@types/react@19.2.14)(bufferutil@4.1.0)(fastestsmallesttextencoderdecoder@1.0.22)(react-dom@19.2.5(react@19.2.5))(react-native@0.74.0(@babel/core@7.28.3)(@babel/preset-env@7.28.3(@babel/core@7.28.3))(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.5)(utf-8-validate@5.0.10))(react@19.2.5)(typescript@5.8.3)(utf-8-validate@5.0.10)
+      '@crossmint/common-sdk-auth':
+        specifier: ^1.1.7
+        version: 1.1.7(@solana/web3.js@1.98.1(bufferutil@4.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10))(bufferutil@4.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.22.4)
+      '@crossmint/common-sdk-base':
+        specifier: ^0.10.0
+        version: 0.10.0(@solana/web3.js@1.98.1(bufferutil@4.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10))(bufferutil@4.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.22.4)
+      '@crossmint/server-sdk':
+        specifier: ^1.2.73
+        version: 1.2.73(@solana/web3.js@1.98.1(bufferutil@4.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10))(bufferutil@4.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.22.4)
+      '@dinari/api-sdk':
+        specifier: ^0.15.0
+        version: 0.15.0
       '@heroicons/react':
         specifier: ^2.2.0
         version: 2.2.0(react@19.2.5)
@@ -32,12 +44,6 @@ importers:
       '@react-native-async-storage/async-storage':
         specifier: ^2.2.0
         version: 2.2.0(react-native@0.74.0(@babel/core@7.28.3)(@babel/preset-env@7.28.3(@babel/core@7.28.3))(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.5)(utf-8-validate@5.0.10))
-      '@stytch/nextjs':
-        specifier: ^22.0.5
-        version: 22.0.5(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
-      '@stytch/vanilla-js':
-        specifier: ^6.0.5
-        version: 6.0.5
       '@tableland/sdk':
         specifier: ^7.2.1
         version: 7.2.1(bufferutil@4.1.0)(utf-8-validate@5.0.10)
@@ -68,6 +74,9 @@ importers:
       graphql-request:
         specifier: ^7.4.0
         version: 7.4.0(graphql@16.13.2)
+      jose:
+        specifier: ^6.2.2
+        version: 6.2.2
       next:
         specifier: 16.2.4
         version: 16.2.4(@babel/core@7.28.3)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
@@ -89,9 +98,6 @@ importers:
       sonner:
         specifier: ^2.0.7
         version: 2.0.7(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
-      stytch:
-        specifier: ^14.0.0
-        version: 14.0.0
       tailwind-merge:
         specifier: ^3.5.0
         version: 3.5.0
@@ -950,6 +956,9 @@ packages:
   '@crossmint/client-sdk-base@2.3.3':
     resolution: {integrity: sha512-SpdzguIrGwQ0mvNcfRF/j2e0vhQXOJxLy1wZEA2U5Q5laaYXIMz9j64PkxR8TKqdnw+NTbn8p0czGX1R/fEdxQ==}
 
+  '@crossmint/client-sdk-base@2.4.0':
+    resolution: {integrity: sha512-Ce7/dnRDqakircyNgmFhAilO0WYFNdPU055N7cQZ/1qkJPukH85sFMyvGrqVkDkpkMmVCJIZyrOE9a+hntdRAw==}
+
   '@crossmint/client-sdk-react-base@2.0.16':
     resolution: {integrity: sha512-ZGfLME/dg46xF3dlEgRTRuFRxQtV51QuXJS7BmffAAvnTjNmmqF3Jhba3yVTK9R9BOY38BHNSLC5t+DSmDwWKQ==}
     peerDependencies:
@@ -962,6 +971,9 @@ packages:
       react: '>=17.0.2'
       react-dom: '>=17.0.2'
 
+  '@crossmint/client-sdk-window@1.0.10':
+    resolution: {integrity: sha512-9TzOgUqzjMIPHiqgKkxnsBUB2z2G9ikOOENLzQLyRBjAsxfPlUC18LYHMtpPI/lrNLdu7nmU0EG0+wm5KWt9mQ==}
+
   '@crossmint/client-sdk-window@1.0.9':
     resolution: {integrity: sha512-GSC8JQYnYQHY2psWBPVbcq9hEtNBInN8b2L5ZL8BlPS1+a8B3VM+yi6RBAqf5K0tMVnDNQ/fBMcKYjp2wa4qbQ==}
 
@@ -971,6 +983,9 @@ packages:
   '@crossmint/client-signers@0.1.2':
     resolution: {integrity: sha512-mnY8XwhMggzqf3q5TUi7yk9+FS9g4NRDgVBOnF8Nx79cX7RNeuNJ1iNkLcV72neQRg0OQ6vZbjAP/Pz4ibnhdg==}
 
+  '@crossmint/common-sdk-auth@1.1.10':
+    resolution: {integrity: sha512-D11EDnsbzdyk8AsgRiQbUZx4SlMMMi18O7IJ4lthXitqNkccvn0iNIVUQzvG5AQjkedNS1B4aAcPSKd9dJRgyQ==}
+
   '@crossmint/common-sdk-auth@1.1.7':
     resolution: {integrity: sha512-ZBp4w7fpbLRDjk9vFCn11KqJyYRECPMIdcuGxTsucfqLSnEgaQ0jERyPbk0ql7fCxzbgObTEpvTVYdVMJuejLg==}
 
@@ -978,6 +993,14 @@ packages:
     resolution: {integrity: sha512-dahwPRABYXcv8wlb2VlaIDqmeYfXxmJ8ettmfQrpiswKZlLfhVANMOe8H+fJhGMsZ3v62oySCz04RkcAdM7XEg==}
     peerDependencies:
       '@solana/web3.js': ^1.98.1
+
+  '@crossmint/common-sdk-base@0.10.1':
+    resolution: {integrity: sha512-59A8JXjvTWYqhBF30jLHLiGV3WY4HtAt83E5/P1XDxpSIMBF8KWf6PMRvHzNpIO9hPDQTn88YSzt3WL4iUb9qw==}
+    peerDependencies:
+      '@solana/web3.js': ^1.98.1
+
+  '@crossmint/server-sdk@1.2.73':
+    resolution: {integrity: sha512-IAIcN90rPYyhl95yXmMpkDjJwsujAA9AukVSvtq2uoRGR3VFroyrhWBS0+A2Wzqixt0mbG6By7B6iPlPVlVU0A==}
 
   '@crossmint/wallets-sdk@1.0.14':
     resolution: {integrity: sha512-SF7fBrkQYKDOTEzGovNVn4qMhqeVlgtwQznWaXi4yV1bhYUqHx7sndbSfrKK8N8Q5TztOLPzbnWgo7ZKJIBRvg==}
@@ -994,6 +1017,9 @@ packages:
     peerDependenciesMeta:
       '@datadog/browser-rum':
         optional: true
+
+  '@dinari/api-sdk@0.15.0':
+    resolution: {integrity: sha512-+5JQsGWDGBeMpyEjZdEyEx6NpwjqxYZQpTlt3lvWzbORTVI+bPryhdXq/0T8saz46sKY3+8jDV6v3oocM7R2vg==}
 
   '@dynamic-labs-sdk/assert-package-version@0.0.1-alpha.24':
     resolution: {integrity: sha512-6QNacJI5kNwBQ/5XEVAk7C3tQVqcmzoJVKvJwImjiFQUCVtwS95QS5I8ZC9z10Sj/6rSIDGaobKWpf2F78423w==}
@@ -3363,15 +3389,6 @@ packages:
   '@stablelib/wipe@1.0.1':
     resolution: {integrity: sha512-WfqfX/eXGiAd3RJe4VU2snh/ZPwtSjLG4ynQ/vYzvghTh7dHFcI1wl+nrkWG6lGhukOxOsUHfv8dUXr58D0ayg==}
 
-  '@stytch/nextjs@22.0.5':
-    resolution: {integrity: sha512-lkT3mUSzjHLdbWIrtom1f0W3kFG6l80UDjka/3RQ2ufCHXdj2zr65jBax2XJcw6a1NNCGn1GNGDCpfVxzv4x+g==}
-    peerDependencies:
-      react: '>= 17.0.2'
-      react-dom: '>= 17.0.2'
-
-  '@stytch/vanilla-js@6.0.5':
-    resolution: {integrity: sha512-BJF0kvgCYu8KfOhK15806SUlODU1e2HoHrlT6AbaGkcnJaZzgMAQEB8I7E4uwi1ihifsdIxYj7TVtOA5baH0Qw==}
-
   '@swc/helpers@0.5.15':
     resolution: {integrity: sha512-JQ5TuMi45Owi4/BIMAJBoSQoOJu12oOk/gADqlcUL9JEdHB8vyjUSsxqeNXnmXHjYKMi2WcYtezGEEhqUI/E2g==}
 
@@ -5402,8 +5419,8 @@ packages:
   joi@17.13.3:
     resolution: {integrity: sha512-otDA4ldcIx+ZXsKHWmp0YizCweVRZG96J10b0FevjfuncLO1oX59THoAmHkNubYJ+9gWsYsp5k8v4ib6oDv1fA==}
 
-  jose@5.10.0:
-    resolution: {integrity: sha512-s+3Al/p9g32Iq+oqXxkW//7jk2Vig6FF1CFqzVXoTUXt2qz89YWbL+OwS17NFYEvxC35n0FKeGO2LGYSxeM2Gg==}
+  jose@5.9.6:
+    resolution: {integrity: sha512-AMlnetc9+CV9asI19zHmrgS/WYsWUwCn2R7RzlbJWD7F9eWYUTGyBmU9o6PxngtLGOiDGPRu+Uc4fhKzbpteZQ==}
 
   jose@6.2.2:
     resolution: {integrity: sha512-d7kPDd34KO/YnzaDOlikGpOurfF0ByC2sEV4cANCtdqLlTfBlw2p14O/5d/zv40gJPbIQxfES3nSx1/oYNyuZQ==}
@@ -7016,10 +7033,6 @@ packages:
   stylis@4.2.0:
     resolution: {integrity: sha512-Orov6g6BB1sDfYgzWfTHDOxamtX1bE/zo104Dh9e6fqJ3PooipYyfJ0pUmrZO2wAvO8YbEyeFrkV91XTsGMSrw==}
 
-  stytch@14.0.0:
-    resolution: {integrity: sha512-W4C6JaP/GiMMbKGZ40ECNoNajkcvF7oJAo114ZcycF34P+HXML5B/28xRwwlZh9CJzAinQ33/cDw9/9imCnv/Q==}
-    engines: {node: '>= 18.0.0'}
-
   sudo-prompt@9.2.1:
     resolution: {integrity: sha512-Mu7R0g4ig9TUuGSxJavny5Rv0egCEtpZRNMrZaYS1vxkiIxGiGUwoezU3LazIQ+KE04hTrTfNPgxU5gzi7F5Pw==}
     deprecated: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
@@ -7264,10 +7277,6 @@ packages:
   undici-types@7.22.0:
     resolution: {integrity: sha512-RKZvifiL60xdsIuC80UY0dq8Z7DbJUV8/l2hOVbyZAxBzEeQU4Z58+4ZzJ6WN2Lidi9KzT5EbiGX+PI/UGYuRw==}
 
-  undici@6.24.1:
-    resolution: {integrity: sha512-sC+b0tB1whOCzbtlx20fx3WgCXwkW627p4EA9uM+/tNNPkSS+eSEld6pAs9nDv7WbY1UUljBMYPtu9BCOrCWKA==}
-    engines: {node: '>=18.17'}
-
   unicode-canonical-property-names-ecmascript@2.0.1:
     resolution: {integrity: sha512-dA8WbNeb2a6oQzAQ55YlT5vQAWGV9WXOsi3SskE3bcCdM0P4SDd+24zS/OCacdRq5BkdsRj9q3Pg6YyQoxIGqg==}
     engines: {node: '>=4'}
@@ -7420,10 +7429,12 @@ packages:
 
   uuid@8.3.2:
     resolution: {integrity: sha512-+NYs2QeMWy+GWFOEm9xnn6HCDp0l7QBD7ml8zLUmJ+93Q5NF0NocErnwkTkXVFNiX3/fpC6afS8Dhb/gz7R7eg==}
+    deprecated: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
     hasBin: true
 
   uuid@9.0.1:
     resolution: {integrity: sha512-b+1eJOlsR9K8HJpow9Ok3fiWOWSIcIzXodvv0rQjVoOVNpWMpxf1wZNpt4y9h10odCNrqnYp1OBzRktckBe3sA==}
+    deprecated: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
     hasBin: true
 
   valibot@0.36.0:
@@ -8918,6 +8929,21 @@ snapshots:
       - typescript
       - utf-8-validate
 
+  '@crossmint/client-sdk-base@2.4.0(@solana/web3.js@1.98.1(bufferutil@4.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10))(bufferutil@4.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10)':
+    dependencies:
+      '@crossmint/client-sdk-window': 1.0.10
+      '@crossmint/common-sdk-base': 0.10.1(@solana/web3.js@1.98.1(bufferutil@4.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10))(bufferutil@4.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.22.4)
+      '@datadog/browser-logs': 6.24.1
+      exponential-backoff: 3.1.1
+      uuid: 9.0.1
+      zod: 3.22.4
+    transitivePeerDependencies:
+      - '@datadog/browser-rum'
+      - '@solana/web3.js'
+      - bufferutil
+      - typescript
+      - utf-8-validate
+
   '@crossmint/client-sdk-react-base@2.0.16(@solana/web3.js@1.98.1(bufferutil@4.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10))(bufferutil@4.1.0)(react@19.2.5)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.22.4)':
     dependencies:
       '@crossmint/client-sdk-auth': 1.3.9(@solana/web3.js@1.98.1(bufferutil@4.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10))(bufferutil@4.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.22.4)
@@ -9004,6 +9030,10 @@ snapshots:
       - uploadthing
       - utf-8-validate
 
+  '@crossmint/client-sdk-window@1.0.10':
+    dependencies:
+      zod: 3.22.4
+
   '@crossmint/client-sdk-window@1.0.9':
     dependencies:
       zod: 3.22.4
@@ -9017,6 +9047,18 @@ snapshots:
   '@crossmint/client-signers@0.1.2':
     dependencies:
       zod: 3.22.4
+
+  '@crossmint/common-sdk-auth@1.1.10(@solana/web3.js@1.98.1(bufferutil@4.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10))(bufferutil@4.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.22.4)':
+    dependencies:
+      '@crossmint/client-sdk-base': 2.4.0(@solana/web3.js@1.98.1(bufferutil@4.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10))(bufferutil@4.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10)
+      '@crossmint/common-sdk-base': 0.10.1(@solana/web3.js@1.98.1(bufferutil@4.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10))(bufferutil@4.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.22.4)
+    transitivePeerDependencies:
+      - '@datadog/browser-rum'
+      - '@solana/web3.js'
+      - bufferutil
+      - typescript
+      - utf-8-validate
+      - zod
 
   '@crossmint/common-sdk-auth@1.1.7(@solana/web3.js@1.98.1(bufferutil@4.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10))(bufferutil@4.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.22.4)':
     dependencies:
@@ -9037,6 +9079,31 @@ snapshots:
       tweetnacl: 1.0.3
       viem: 2.33.1(bufferutil@4.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.22.4)
     transitivePeerDependencies:
+      - bufferutil
+      - typescript
+      - utf-8-validate
+      - zod
+
+  '@crossmint/common-sdk-base@0.10.1(@solana/web3.js@1.98.1(bufferutil@4.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10))(bufferutil@4.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.22.4)':
+    dependencies:
+      '@solana/web3.js': 1.98.1(bufferutil@4.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10)
+      bs58: 5.0.0
+      tweetnacl: 1.0.3
+      viem: 2.33.1(bufferutil@4.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.22.4)
+    transitivePeerDependencies:
+      - bufferutil
+      - typescript
+      - utf-8-validate
+      - zod
+
+  '@crossmint/server-sdk@1.2.73(@solana/web3.js@1.98.1(bufferutil@4.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10))(bufferutil@4.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.22.4)':
+    dependencies:
+      '@crossmint/common-sdk-auth': 1.1.10(@solana/web3.js@1.98.1(bufferutil@4.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10))(bufferutil@4.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.22.4)
+      '@crossmint/common-sdk-base': 0.10.1(@solana/web3.js@1.98.1(bufferutil@4.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10))(bufferutil@4.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.22.4)
+      jose: 5.9.6
+    transitivePeerDependencies:
+      - '@datadog/browser-rum'
+      - '@solana/web3.js'
       - bufferutil
       - typescript
       - utf-8-validate
@@ -9070,6 +9137,8 @@ snapshots:
   '@datadog/browser-logs@6.24.1':
     dependencies:
       '@datadog/browser-core': 6.24.1
+
+  '@dinari/api-sdk@0.15.0': {}
 
   '@dynamic-labs-sdk/assert-package-version@0.0.1-alpha.24': {}
 
@@ -13063,13 +13132,6 @@ snapshots:
 
   '@stablelib/wipe@1.0.1': {}
 
-  '@stytch/nextjs@22.0.5(react-dom@19.2.5(react@19.2.5))(react@19.2.5)':
-    dependencies:
-      react: 19.2.5
-      react-dom: 19.2.5(react@19.2.5)
-
-  '@stytch/vanilla-js@6.0.5': {}
-
   '@swc/helpers@0.5.15':
     dependencies:
       tslib: 2.8.1
@@ -16614,7 +16676,7 @@ snapshots:
       '@sideway/formula': 3.0.1
       '@sideway/pinpoint': 2.0.0
 
-  jose@5.10.0: {}
+  jose@5.9.6: {}
 
   jose@6.2.2: {}
 
@@ -18532,11 +18594,6 @@ snapshots:
 
   stylis@4.2.0: {}
 
-  stytch@14.0.0:
-    dependencies:
-      jose: 5.10.0
-      undici: 6.24.1
-
   sudo-prompt@9.2.1: {}
 
   superstruct@1.0.4: {}
@@ -18766,8 +18823,6 @@ snapshots:
   undici-types@6.19.8: {}
 
   undici-types@7.22.0: {}
-
-  undici@6.24.1: {}
 
   unicode-canonical-property-names-ecmascript@2.0.1: {}
 

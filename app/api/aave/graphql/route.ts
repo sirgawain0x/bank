@@ -4,7 +4,9 @@ const AAVE_GRAPHQL_URL = "https://api.v3.aave.com/graphql";
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 500;
 
-async function fetchWithRetry(body: string): Promise<{ data: string; status: number; contentType: string }> {
+async function fetchWithRetry(
+  body: string
+): Promise<{ data: string; status: number; contentType: string }> {
   let lastError: unknown;
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
@@ -23,7 +25,9 @@ async function fetchWithRetry(body: string): Promise<{ data: string; status: num
 
       // Retry on 5xx server errors (not 4xx client errors)
       if (upstream.status >= 500 && attempt < MAX_RETRIES) {
-        console.warn(`Aave API returned ${upstream.status} (attempt ${attempt + 1}/${MAX_RETRIES + 1}), retrying...`);
+        console.warn(
+          `Aave API returned ${upstream.status} (attempt ${attempt + 1}/${MAX_RETRIES + 1}), retrying...`
+        );
         const jitter = Math.random() * 200;
         await new Promise((r) => setTimeout(r, BASE_DELAY_MS * 2 ** attempt + jitter));
         continue;
@@ -64,9 +68,7 @@ const EMPTY_PAGINATED_RESULT = JSON.stringify({
  * rejects these with "field user is required". Short-circuit them here so
  * the API call is never made and no error surfaces to the client.
  */
-function earlyReturnForEmptyVaultQueries(
-  rawBody: string,
-): NextResponse | null {
+function earlyReturnForEmptyVaultQueries(rawBody: string): NextResponse | null {
   if (!rawBody.includes("Vaults")) return null;
 
   try {
@@ -74,10 +76,8 @@ function earlyReturnForEmptyVaultQueries(
     const opName: string = parsed?.operationName ?? "";
     const req = parsed?.variables?.request;
 
-    const isVaultListOp =
-      opName === "UserVaults" || opName === "Vaults";
-    const hasNoUser =
-      !req?.user && !req?.criteria && !req?.deployer;
+    const isVaultListOp = opName === "UserVaults" || opName === "Vaults";
+    const hasNoUser = !req?.user && !req?.criteria && !req?.deployer;
 
     if (isVaultListOp && hasNoUser) {
       return NextResponse.json(JSON.parse(EMPTY_PAGINATED_RESULT), {
@@ -117,9 +117,7 @@ export async function POST(request: Request) {
         {
           errors: [
             {
-              message: data.includes("panic")
-                ? "Service panicked"
-                : `Aave API error (${status})`,
+              message: data.includes("panic") ? "Service panicked" : `Aave API error (${status})`,
               extensions: { upstream: data.slice(0, 500) },
             },
           ],

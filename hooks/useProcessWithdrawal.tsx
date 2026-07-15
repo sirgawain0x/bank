@@ -3,6 +3,12 @@ import { Chain, Wallet } from "@crossmint/client-sdk-react-ui";
 import { getTransactions } from "@/server-actions/getTransactions";
 import { useBalance } from "./useBalance";
 import { useActivityFeed } from "./useActivityFeed";
+import {
+  formatRecipientLabel,
+  normalizeTxErrorMessage,
+  showTxErrorToast,
+  showTxSuccessToast,
+} from "@/lib/transactionToast";
 
 const getProccesedTransactions = (transactionId: string) => {
   const processedTransactions = localStorage.getItem("processedTransactions");
@@ -58,20 +64,30 @@ export function useProcessWithdrawal(userId?: string, wallet?: Wallet<Chain>) {
           setProccesedTransactions(pendingTransaction.transaction_id);
 
           try {
-            // Send the transaction using the wallet
-            await wallet.send(
+            const sendResult = await wallet.send(
               pendingTransaction.to_address,
               "usdc",
               pendingTransaction.sell_amount.value
             );
 
-            console.log("Withdrawal transaction sent successfully");
+            const amount = pendingTransaction.sell_amount.value;
+            showTxSuccessToast({
+              title: "Withdrawal sent",
+              description: `Sent $${amount} USDC to ${formatRecipientLabel(pendingTransaction.to_address)}`,
+              txHash: sendResult?.hash,
+              explorerLink: sendResult?.explorerLink,
+            });
 
-            // Refresh data after successful transaction
             await Promise.all([refetchBalance(), refetchActivityFeed()]);
           } catch (sendError) {
-            console.error("Failed to send withdrawal transaction:", sendError);
-            // Could implement retry logic here if needed
+            const message = normalizeTxErrorMessage(sendError, "Withdrawal send failed");
+            showTxErrorToast({
+              title:
+                message === "Transaction was cancelled"
+                  ? "Transaction cancelled"
+                  : "Withdrawal failed",
+              description: message,
+            });
             throw sendError;
           }
         } else {

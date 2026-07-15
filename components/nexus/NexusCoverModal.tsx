@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Address, formatUnits, parseUnits } from "viem";
 import { Modal } from "@/components/common/Modal";
 import { useNexusCoverQuote } from "@/hooks/useNexusCoverQuote";
@@ -11,8 +11,15 @@ import {
   NEXUS_MAX_COVER_PERIOD_DAYS,
   NEXUS_MIN_COVER_USD,
   NEXUS_TERMS_LINKS,
+  toBigIntSafe,
 } from "@/lib/config/nexus-mutual";
 import { toast } from "sonner";
+import { mainnet } from "viem/chains";
+import {
+  normalizeTxErrorMessage,
+  showTxErrorToast,
+  showTxSuccessToast,
+} from "@/lib/transactionToast";
 
 export type NexusCoverProduct = "aave" | "yearn";
 
@@ -54,6 +61,30 @@ export function NexusCoverModal({
 
   const coverAssetId = getNexusCoverAssetId(assetSymbol);
 
+  const minWei = useMemo(() => {
+    // Approximate the $100 USD minimum in the cover asset's own units. Stablecoins
+    // (USDC/DAI) map ~1:1; ETH/cbBTC use rough fixed approximations so we don't
+    // require 100 whole ETH/cbBTC of cover.
+    const symbol = assetSymbol.toUpperCase();
+    const minAmount = symbol === "ETH" ? "0.03" : symbol === "CBBTC" ? "0.001" : "100";
+    try {
+      return parseUnits(minAmount, assetDecimals);
+    } catch {
+      return parseUnits("100", 6);
+    }
+  }, [assetSymbol, assetDecimals]);
+
+  const amountWeiBig = useMemo(() => {
+    try {
+      return BigInt(amountWei);
+    } catch {
+      return 0n;
+    }
+  }, [amountWei]);
+
+  const hasAmount = amountWeiBig > 0n;
+  const meetsMinimum = amountWeiBig >= minWei;
+
   const {
     result: quote,
     error: quoteError,
@@ -65,13 +96,16 @@ export function NexusCoverModal({
     periodDays,
     coverAsset: coverAssetId,
     buyerAddress: open ? buyerAddress : undefined,
-    enabled: open && BigInt(amountWei) > 0n && !!buyerAddress,
+    // Only quote once the amount meets the minimum cover. Quoting sub-minimum
+    // amounts makes the Nexus SDK throw a BigInt conversion error.
+    enabled: open && meetsMinimum && !!buyerAddress,
   });
 
   const {
     buyCover,
     isPending: buyPending,
     isSuccess: buySuccess,
+    txHash: buyTxHash,
     error: buyError,
     reset: resetBuy,
     isCorrectChain,
@@ -91,10 +125,27 @@ export function NexusCoverModal({
 
   useEffect(() => {
     if (buySuccess) {
-      toast.success("Cover purchased. Your position is protected by Nexus Mutual.");
+      showTxSuccessToast({
+        title: "Cover purchased",
+        description: "Your position is protected by Nexus Mutual.",
+        txHash: buyTxHash,
+        chainId: mainnet.id,
+      });
       handleClose();
     }
-  }, [buySuccess, handleClose]);
+  }, [buySuccess, buyTxHash, handleClose]);
+
+  const shownBuyErrorRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!buyError) {
+      shownBuyErrorRef.current = null;
+      return;
+    }
+    const message = normalizeTxErrorMessage(buyError, "Cover purchase failed");
+    if (shownBuyErrorRef.current === message) return;
+    shownBuyErrorRef.current = message;
+    showTxErrorToast({ title: "Cover purchase failed", description: message });
+  }, [buyError]);
 
   const suggestedFormatted = useMemo(() => {
     if (suggestedAmountWei == null || suggestedAmountWei <= 0n) return "";
@@ -105,19 +156,15 @@ export function NexusCoverModal({
     if (suggestedFormatted) setAmount(suggestedFormatted);
   }, [suggestedFormatted]);
 
-  const minAmountFormatted = useMemo(() => {
-    try {
-      const minWei = parseUnits(String(NEXUS_MIN_COVER_USD), assetDecimals);
-      return formatUnits(minWei, assetDecimals);
-    } catch {
-      return "100";
-    }
-  }, [assetDecimals]);
+  const minAmountFormatted = useMemo(
+    () => formatUnits(minWei, assetDecimals),
+    [minWei, assetDecimals]
+  );
 
   const canSubmit =
     quote &&
     acknowledged &&
-    BigInt(amountWei) >= parseUnits(minAmountFormatted, assetDecimals) &&
+    meetsMinimum &&
     periodDays >= NEXUS_MIN_COVER_PERIOD_DAYS &&
     periodDays <= NEXUS_MAX_COVER_PERIOD_DAYS;
 
@@ -133,7 +180,7 @@ export function NexusCoverModal({
 
   const isPayableInEth = quote?.buyCoverInput.buyCoverParams.paymentAsset === 0;
   const premiumFormatted = quote?.displayInfo.premiumInAsset
-    ? formatUnits(BigInt(quote.displayInfo.premiumInAsset), assetDecimals)
+    ? formatUnits(toBigIntSafe(quote.displayInfo.premiumInAsset), assetDecimals)
     : null;
   const yearlyPerc =
     quote?.displayInfo.yearlyCostPerc != null
@@ -201,10 +248,13 @@ export function NexusCoverModal({
           </p>
         </div>
 
-        {quoteLoading && BigInt(amountWei) > 0n && (
-          <p className="text-sm text-slate-500">Loading quote…</p>
+        {hasAmount && !meetsMinimum && (
+          <p className="text-sm text-amber-600">
+            Minimum cover is {minAmountFormatted} {assetSymbol}. Increase the amount to get a quote.
+          </p>
         )}
-        {quoteError && <p className="text-sm text-red-600">{quoteError.message}</p>}
+        {quoteLoading && meetsMinimum && <p className="text-sm text-slate-500">Loading quote…</p>}
+        {quoteError && meetsMinimum && <p className="text-sm text-red-600">{quoteError.message}</p>}
         {quote && !quoteError && (
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
             <p className="text-sm font-medium text-slate-900">Quote</p>

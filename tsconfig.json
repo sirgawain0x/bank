@@ -29,5 +29,12 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],
-  "exclude": ["node_modules", "scripts"]
+  "exclude": [
+    "node_modules",
+    "scripts",
+    ".claude",
+    "lib/openzeppelin-contracts",
+    "lib/forge-std",
+    "lib/tokenized-strategy"
+  ]
 }

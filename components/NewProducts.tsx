@@ -32,6 +32,13 @@ const newProducts: NewProductProps[] = [
     ctaLabel: "Go to Lending",
     ctaHref: "/lending",
   },
+  {
+    title: "Stock Trading",
+    description: "Trade tokenized stocks with USDC",
+    image: "/stock-trading.png",
+    ctaLabel: "Trade Stocks",
+    ctaHref: "/dinari",
+  },
 ];
 
 interface NewProductProps {

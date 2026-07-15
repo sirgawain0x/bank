@@ -61,13 +61,17 @@ export async function POST(request: NextRequest) {
       [eventId, JSON.stringify(payload), walletAddress]
     );
 
-    // Calculate liquidation penalty (Aave V3 typically charges 5-10%)
-    const collateralLost = Number(liquidatedCollateralAmount || 0);
-    const debtCleared = Number(debtToCover || 0);
-    const penaltyUsd =
-      collateralLost > 0 && debtCleared > 0 ? Math.max(0, collateralLost - debtCleared) : null;
+    // Store raw amounts in native decimals as strings — Postgres NUMERIC
+    // preserves arbitrary precision, and passing JS Number() would lose
+    // precision above 2^53 for 18-decimal assets.
+    const collateralLostRaw = String(liquidatedCollateralAmount ?? "0");
+    const debtClearedRaw = String(debtToCover ?? "0");
 
-    // Store liquidation event
+    // USD penalty cannot be computed from the webhook payload alone — it
+    // requires oracle prices for both assets at the liquidation block.
+    // Leave null here; a reporting job can backfill using a price feed.
+    const penaltyUsd: number | null = null;
+
     await pool.query(
       `INSERT INTO liquidations
        (wallet_address, collateral_asset, debt_asset, collateral_lost, debt_cleared,
@@ -78,21 +82,22 @@ export async function POST(request: NextRequest) {
         walletAddress,
         collateralAsset || "unknown",
         debtAsset || "unknown",
-        collateralLost,
-        debtCleared,
+        collateralLostRaw,
+        debtClearedRaw,
         penaltyUsd,
         transactionHash,
       ]
     );
 
-    // Create a high-priority danger alert
+    // Create a high-priority danger alert. The UI formats the raw amount
+    // using the asset's decimals, so keep this message asset-agnostic.
     await pool.query(
       `INSERT INTO health_alerts
        (wallet_address, alert_type, current_status, health_factor, message, email_queued)
        VALUES ($1, 'danger', 'liquidated', 0, $2, true)`,
       [
         walletAddress,
-        `Your position was liquidated. ${collateralLost > 0 ? `${collateralLost} collateral was seized` : "Collateral was seized"} to cover your debt. Review the post-mortem in your Reports section.`,
+        `Your position was liquidated. Collateral was seized to cover your debt. Review the post-mortem in your Reports section.`,
       ]
     );
 

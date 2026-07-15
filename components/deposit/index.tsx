@@ -81,7 +81,6 @@ export function DepositModal({ open, onClose, walletAddress }: DepositModalProps
       )}
       title="Deposit"
     >
-      {/* Amount input — show when no payment method selected yet */}
       {step === "options" && !paymentMethod && (
         <div className="mb-6 flex w-full flex-col items-center">
           <AmountInput amount={amount} onChange={setAmount} />
@@ -93,40 +92,53 @@ export function DepositModal({ open, onClose, walletAddress }: DepositModalProps
         </div>
       )}
 
-      {/* Payment method selector */}
       {step === "options" && !paymentMethod && (
         <div className="flex w-full flex-col gap-3">
           <p className="text-center text-sm font-medium text-black">How would you like to pay?</p>
+
+          {/* Recommended: Coinbase hosted — no in-app phone verification */}
           <button
+            type="button"
+            onClick={() => setPaymentMethod("card")}
+            disabled={!isAmountValid}
+            className="relative flex w-full items-center gap-3 rounded-xl border-2 border-blue-500 bg-white px-4 py-4 text-left transition-colors hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <span className="absolute top-2 right-2 rounded-full bg-blue-500 px-2 py-0.5 text-[10px] font-semibold text-white uppercase">
+              Recommended
+            </span>
+            <span className="text-2xl" aria-hidden="true">
+              💳
+            </span>
+            <div>
+              <p className="text-sm font-semibold text-black">All Payment Methods</p>
+              <p className="text-xs text-gray-600">
+                Card, bank, Apple Pay, or Google Pay via Coinbase — identity verified in their
+                secure checkout
+              </p>
+            </div>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setPaymentMethod("digital-wallet")}
             disabled={!isAmountValid}
             className="flex w-full items-center gap-3 rounded-xl border border-gray-300 bg-white px-4 py-4 text-left transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            <span className="text-2xl">📱</span>
+            <span className="text-2xl" aria-hidden="true">
+              📱
+            </span>
             <div>
               <p className="text-sm font-semibold text-black">Express Checkout</p>
-              <p className="text-xs text-gray-600">Apple Pay or Google Pay — never leave the app</p>
-            </div>
-          </button>
-          <button
-            onClick={() => setPaymentMethod("card")}
-            disabled={!isAmountValid}
-            className="flex w-full items-center gap-3 rounded-xl border border-gray-300 bg-white px-4 py-4 text-left transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <span className="text-2xl">💳</span>
-            <div>
-              <p className="text-sm font-semibold text-black">All Payment Methods</p>
               <p className="text-xs text-gray-600">
-                Card, bank transfer, Apple Pay, Google Pay via Coinbase
+                Apple Pay or Google Pay in-app — requires US mobile number verification (SMS)
               </p>
             </div>
           </button>
         </div>
       )}
 
-      {/* Headless flow (Apple Pay / Google Pay) */}
       {paymentMethod === "digital-wallet" && (
-        <div className="flex w-full flex-grow flex-col">
+        <div className="flex w-full grow flex-col">
           <HeadlessOnrampFlow
             amount={amount}
             isAmountValid={isAmountValid}
@@ -141,9 +153,8 @@ export function DepositModal({ open, onClose, walletAddress }: DepositModalProps
         </div>
       )}
 
-      {/* Coinbase hosted popup (Card / ACH) */}
       {paymentMethod === "card" && (
-        <div className="flex w-full flex-grow flex-col">
+        <div className="flex w-full grow flex-col">
           <CoinbaseOnrampCheckout
             amount={amount}
             isAmountValid={isAmountValid}

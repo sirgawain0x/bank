@@ -9,13 +9,15 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useStytch, useStytchSession, useStytchUser } from "@stytch/nextjs";
+import { useCrossmintAuth } from "@crossmint/client-sdk-react-ui";
 
 type AuthStatus = "logged-out" | "logged-in" | "initializing";
 
 interface AuthUser {
   id: string;
   email: string;
+  /** Set when the user signed in with Crossmint email OTP (no extra deposit step). */
+  emailVerifiedAt?: string;
   phoneNumber?: string;
   phoneNumberVerifiedAt?: string;
 }
@@ -24,69 +26,84 @@ interface AuthContextValue {
   status: AuthStatus;
   user: AuthUser | null;
   jwt: string | null;
+  /** @deprecated Use `jwt` — kept for API routes that still accept sessionToken in bodies */
   sessionToken: string | null;
   login: () => void;
-  logout: () => void;
+  logout: () => Promise<void>;
   showLogin: boolean;
   setShowLogin: (show: boolean) => void;
+  refreshUserProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const stytch = useStytch();
-  const { session } = useStytchSession();
-  const { user: stytchUser, isInitialized } = useStytchUser();
-  const [showLogin, setShowLogin] = useState(false);
-  const [jwt, setJwt] = useState<string | null>(null);
-  const [sessionToken, setSessionToken] = useState<string | null>(null);
+const mapCrossmintStatus = (status: string): AuthStatus => {
+  if (status === "logged-in") return "logged-in";
+  if (status === "logged-out") return "logged-out";
+  return "initializing";
+};
 
-  const status: AuthStatus = useMemo(() => {
-    if (!isInitialized) return "initializing";
-    if (session && stytchUser) return "logged-in";
-    return "logged-out";
-  }, [isInitialized, session, stytchUser]);
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const {
+    status: crossmintStatus,
+    user: crossmintUser,
+    jwt,
+    logout: crossmintLogout,
+    getUser,
+  } = useCrossmintAuth();
+
+  const [showLogin, setShowLogin] = useState(false);
+  const [emailVerifiedAt, setEmailVerifiedAt] = useState<string | undefined>();
+  const [phoneNumberVerifiedAt, setPhoneNumberVerifiedAt] = useState<string | undefined>();
+
+  const status = mapCrossmintStatus(crossmintStatus);
 
   const user: AuthUser | null = useMemo(() => {
-    if (!stytchUser) return null;
-
-    const primaryEmail =
-      stytchUser.emails?.find((e) => e.verified)?.email ?? stytchUser.emails?.[0]?.email ?? "";
-
-    const verifiedPhone = stytchUser.phone_numbers?.find((p) => p.verified);
-    const phoneNumberVerifiedAt = stytchUser.trusted_metadata?.phoneNumberVerifiedAt as
-      | string
-      | undefined;
+    if (!crossmintUser) return null;
 
     return {
-      id: stytchUser.user_id,
-      email: primaryEmail,
-      phoneNumber: verifiedPhone?.phone_number,
+      id: crossmintUser.id,
+      email: crossmintUser.email ?? "",
+      emailVerifiedAt,
+      phoneNumber: crossmintUser.phoneNumber,
       phoneNumberVerifiedAt,
     };
-  }, [stytchUser]);
+  }, [crossmintUser, emailVerifiedAt, phoneNumberVerifiedAt]);
 
-  // Fetch session tokens for Crossmint BYOA (JWT) and server API calls (opaque token)
-  useEffect(() => {
-    if (!session) {
-      setJwt(null);
-      setSessionToken(null);
+  const refreshUserProfile = useCallback(async () => {
+    if (!jwt) {
+      setEmailVerifiedAt(undefined);
+      setPhoneNumberVerifiedAt(undefined);
       return;
     }
 
-    const tokens = stytch.session.getTokens();
-    if (tokens?.session_jwt) setJwt(tokens.session_jwt);
-    if (tokens?.session_token) setSessionToken(tokens.session_token);
-  }, [session, stytch.session]);
+    try {
+      const response = await fetch("/api/user/profile", {
+        headers: { Authorization: `Bearer ${jwt}` },
+      });
+      if (!response.ok) return;
 
-  // Refresh tokens when session ID changes (handles background refreshes)
+      const data = await response.json();
+      if (data.emailVerifiedAt) {
+        setEmailVerifiedAt(data.emailVerifiedAt);
+      }
+      if (data.phoneNumberVerifiedAt) {
+        setPhoneNumberVerifiedAt(data.phoneNumberVerifiedAt);
+      }
+    } catch {
+      // Profile fetch is best-effort (warm start for Coinbase onramp)
+    }
+  }, [jwt]);
+
   useEffect(() => {
-    if (!session?.session_id) return;
-
-    const tokens = stytch.session.getTokens();
-    if (tokens?.session_jwt) setJwt(tokens.session_jwt);
-    if (tokens?.session_token) setSessionToken(tokens.session_token);
-  }, [session?.session_id, stytch.session]);
+    if (status === "logged-in") {
+      getUser();
+      void refreshUserProfile();
+    } else {
+      setEmailVerifiedAt(undefined);
+      setPhoneNumberVerifiedAt(undefined);
+    }
+  }, [status, getUser, refreshUserProfile]);
 
   const login = useCallback(() => {
     setShowLogin(true);
@@ -94,27 +111,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     try {
-      await stytch.session.revoke();
+      await crossmintLogout();
     } catch {
       // Session may already be expired
     }
-    setJwt(null);
-    setSessionToken(null);
-    setShowLogin(false);
-  }, [stytch.session]);
+    setEmailVerifiedAt(undefined);
+    setPhoneNumberVerifiedAt(undefined);
+    // Show login modal immediately — Login only renders CrossmintLoginModal (no page chrome).
+    setShowLogin(true);
+  }, [crossmintLogout]);
 
   const value: AuthContextValue = useMemo(
     () => ({
       status,
       user,
-      jwt,
-      sessionToken,
+      jwt: jwt ?? null,
+      sessionToken: jwt ?? null,
       login,
       logout,
       showLogin,
       setShowLogin,
+      refreshUserProfile,
     }),
-    [status, user, jwt, sessionToken, login, logout, showLogin]
+    [status, user, jwt, login, logout, showLogin, refreshUserProfile]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -61,7 +61,7 @@ export function ATokenBalance() {
       <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs font-medium uppercase text-emerald-600">aBaseUSDC Balance</p>
+            <p className="text-xs font-medium text-emerald-600 uppercase">aBaseUSDC Balance</p>
             <p className="mt-1 text-lg font-semibold text-emerald-900">{display} aBaseUSDC</p>
             <p className="mt-0.5 text-xs text-emerald-700">
               Interest accruing in real-time on Aave

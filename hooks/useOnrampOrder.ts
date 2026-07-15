@@ -56,6 +56,7 @@ interface CreateOrderParams {
   phoneNumberVerifiedAt?: string;
   paymentMethod?: string;
   sessionToken?: string;
+  authToken?: string;
 }
 
 // Re-export for use in components
@@ -149,9 +150,13 @@ export function useOnrampOrder(): UseOnrampOrderReturn {
       try {
         const domain = typeof window !== "undefined" ? window.location.hostname : undefined;
 
+        const authToken = params.authToken ?? params.sessionToken;
         const response = await fetch("/api/onramp/order", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+          },
           body: JSON.stringify({
             ...params,
             partnerUserRef: params.destinationAddress,

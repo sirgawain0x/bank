@@ -35,10 +35,7 @@ const getOrderedRpcUrls = (chain: AllowedChain): string[] => {
 const isRetryableStatus = (status: number): boolean =>
   status === 403 || status === 429 || status >= 500;
 
-export async function POST(
-  request: Request,
-  context: { params: Promise<{ chain: string }> }
-) {
+export async function POST(request: Request, context: { params: Promise<{ chain: string }> }) {
   const { chain } = await context.params;
 
   if (!ALLOWED_CHAINS.has(chain as AllowedChain)) {

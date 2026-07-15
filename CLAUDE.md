@@ -4,17 +4,14 @@
 
 Creative Bank is a fintech-grade DeFi platform on Base. The architecture separates three concerns:
 
-### Identity Layer (Stytch)
+### Identity & Wallet (Crossmint)
 
-- Stytch Headless SDK handles login (Email OTP, Google OAuth, EVM Crypto Wallet)
-- Stytch Node SDK on backend for session validation, OTP send/verify
-- JwtSync component bridges Stytch JWT → Crossmint via `useCrossmint().setJwt()`
-- Phone verification stores `phoneNumberVerifiedAt` in Stytch `trusted_metadata` for Coinbase "Warm Start"
-
-### Wallet Infrastructure (Crossmint BYOA)
-
-- Crossmint provides non-custodial smart wallets with passkey signers
-- Configured for BYOA — accepts Stytch JWTs, no internal auth
+- Crossmint Auth handles login (Email OTP, Google OAuth) via `CrossmintAuthProvider` + `EmbeddedAuthForm`
+- Wallets are created on login (`createOnLogin` with passkey + email recovery)
+- Optional server session routes: `/api/auth/crossmint/refresh`, `/api/auth/crossmint/logout` (`@crossmint/server-sdk`)
+- Server APIs validate Crossmint JWTs via JWKS (`lib/crossmintAuth.ts`)
+- Phone verification for Coinbase warm-start is stored in CockroachDB (`phone_number_verified_at`)
+- Wallet transfer webhooks sync the ledger (`lib/crossmint-webhook.ts`); see `docs/CROSSMINT_WEBHOOKS.md`
 - Wallet address is the stable user identifier across all systems
 
 ### Membership Layer (Unlock Protocol)
@@ -28,8 +25,8 @@ Creative Bank is a fintech-grade DeFi platform on Base. The architecture separat
 
 - GCP us-east1 (South Carolina) for cloud diversity
 - PostgreSQL driver (`pg`) — same pattern as Creative TV's Supabase
-- `users` table: `stytch_user_id` (PK) → `wallet_address` (unique)
-- `transactions` table: keyed by `wallet_address`, `stytch_user_id` for correlation
+- `users` table: `crossmint_user_id` (PK) → `wallet_address` (unique)
+- `transactions` table: keyed by `wallet_address`, `crossmint_user_id` for correlation
 
 ### Coinbase Onramp
 
@@ -67,19 +64,19 @@ Creative Bank is a fintech-grade DeFi platform on Base. The architecture separat
 
 - Default branch: `prod`
 - **Always fetch and pull before branching:**
-  ```bash
-  git fetch origin
-  git checkout prod
-  git pull origin prod
-  ```
+ ```bash
+ git fetch origin
+ git checkout prod
+ git pull origin prod
+ ```
 - **Create feature branches from up-to-date `prod`:**
-  ```bash
-  git checkout -b feature/<description> prod
-  ```
+ ```bash
+ git checkout -b feature/<description> prod
+ ```
 - **Branch naming:** `feature/*`, `fix/*`, `chore/*`
 - **Rebase before pushing:**
-  ```bash
-  git fetch origin
-  git rebase origin/prod
-  ```
+ ```bash
+ git fetch origin
+ git rebase origin/prod
+ ```
 - **Never commit directly to `prod`** — always use feature branches + PRs

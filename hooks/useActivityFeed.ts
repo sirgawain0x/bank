@@ -6,7 +6,7 @@ export function useActivityFeed() {
   return useQuery({
     queryKey: ["walletActivity", wallet?.address],
     queryFn: async () => {
-      const response = await wallet?.transfers({ status: "successful" });
+      const response = await wallet?.transfers({ tokens: "usdc", status: "successful" });
       return {
         events: (response?.data ?? []).map((t) => ({
           from_address: t.sender?.address ?? "",
