@@ -12,9 +12,13 @@ export const getDinariMode = (): DinariMode => {
 
 /**
  * CAIP-2 chain ID for Dinari wallet linking.
- * Aligns with Crossmint `getWalletChain` (production always Base mainnet).
+ * Sandbox always uses Base Sepolia (eip155:84532) so Partners portal / Crossmint staging match.
+ * Production follows Crossmint `getWalletChain` (Base mainnet when NODE_ENV=production).
  */
 export const getDinariWalletChainId = (): DinariWalletChainId => {
+  if (getDinariMode() === "sandbox") {
+    return "eip155:84532";
+  }
   return getWalletChain() === "base-sepolia" ? "eip155:84532" : "eip155:8453";
 };
 
@@ -36,7 +40,20 @@ const resolveAccountId = async (entityId: string, preferredAccountId?: string): 
 const isWalletLinked = async (accountId: string, walletAddress: string): Promise<boolean> => {
   try {
     const wallet = await dinariClient.v2.accounts.wallet.get(accountId);
-    return wallet.address.toLowerCase() === walletAddress.toLowerCase();
+    const linkedAddress = wallet?.address?.toLowerCase();
+    if (!linkedAddress) {
+      return false;
+    }
+
+    const matchesCrossmint = linkedAddress === walletAddress.toLowerCase();
+
+    // Sandbox: Dinari-managed EOAs are already active in the Partners portal —
+    // treat the account as linked without requiring Crossmint SCW = same address.
+    if (getDinariMode() === "sandbox" && wallet?.is_managed_wallet) {
+      return true;
+    }
+
+    return matchesCrossmint;
   } catch {
     return false;
   }
@@ -110,17 +127,25 @@ const tryClaimSandboxAccountId = async (
  * Resolve a unique sandbox account for this user under the shared sandbox entity.
  * Prefer a previously persisted account; optionally claim DINARI_SANDBOX_ACCOUNT_ID
  * atomically if unclaimed; otherwise create a new account.
+ *
+ * To switch onto a managed-wallet account: set DINARI_SANDBOX_ACCOUNT_ID, then clear
+ * this user's dinari_account_id (NULL) once so the claim can succeed.
  */
 const resolveSandboxAccountId = async (params: {
   userId: string;
   entityId: string;
   existingAccountId: string | null;
 }): Promise<string> => {
+  const preferredAccountId = process.env.DINARI_SANDBOX_ACCOUNT_ID?.trim();
+
+  if (preferredAccountId && params.existingAccountId === preferredAccountId) {
+    return preferredAccountId;
+  }
+
   if (params.existingAccountId) {
     return params.existingAccountId;
   }
 
-  const preferredAccountId = process.env.DINARI_SANDBOX_ACCOUNT_ID?.trim();
   if (preferredAccountId) {
     const claimed = await tryClaimSandboxAccountId(params.userId, preferredAccountId);
     if (claimed) {
