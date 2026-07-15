@@ -8,6 +8,7 @@ import {
   useDinariStockPrice,
   useDinariStocks,
 } from "@/hooks/dinari/useDinariData";
+import { SandboxManagedWalletPanel } from "@/components/dinari/SandboxManagedWalletPanel";
 import { formatUsd } from "@/lib/formatters";
 import { useAuth } from "@/context/AuthContext";
 
@@ -166,78 +167,107 @@ export function DinariStockTrading() {
   }
 
   if (!session.walletLinked) {
+    const isManagedSandbox = session.mode === "sandbox" && session.walletKind === "managed";
+
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-xl font-semibold text-slate-900">Link Wallet to Dinari</h2>
-        <p className="mb-4 text-slate-600">
-          Prove ownership of your Crossmint wallet so Dinari can whitelist it for dShares.
-        </p>
-        <div className="mb-4 rounded-lg bg-slate-50 p-4 text-sm text-slate-700">
-          <p>
-            Mode: <span className="font-medium">{session.mode}</span>
+      <div className="space-y-6">
+        <SandboxManagedWalletPanel session={session} />
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="mb-4 text-xl font-semibold text-slate-900">
+            {isManagedSandbox ? "Managed wallet not ready" : "Link Wallet to Dinari"}
+          </h2>
+          <p className="mb-4 text-slate-600">
+            {isManagedSandbox
+              ? "Confirm DINARI_SANDBOX_ACCOUNT_ID and DINARI_SANDBOX_WALLET_ADDRESS match the Partners portal managed EOA, then refresh."
+              : "Prove ownership of your Crossmint wallet so Dinari can whitelist it for dShares."}
           </p>
-          <p>
-            Entity ID: <span className="font-mono text-xs">{session.entityId}</span>
-          </p>
-          <p>
-            Account ID: <span className="font-mono text-xs">{session.accountId}</span>
-          </p>
-          <p>
-            KYC: <span className="font-medium">{session.kycStatus}</span>
-          </p>
-        </div>
-        {linkError && (
-          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-            {linkError}
+          <div className="mb-4 rounded-lg bg-slate-50 p-4 text-sm text-slate-700">
+            <p>
+              Mode: <span className="font-medium">{session.mode}</span>
+            </p>
+            <p>
+              Entity ID: <span className="font-mono text-xs">{session.entityId}</span>
+            </p>
+            <p>
+              Account ID: <span className="font-mono text-xs">{session.accountId}</span>
+            </p>
+            <p>
+              Wallet kind: <span className="font-medium">{session.walletKind}</span>
+            </p>
+            <p>
+              KYC: <span className="font-medium">{session.kycStatus}</span>
+            </p>
           </div>
-        )}
-        <button
-          type="button"
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
-          onClick={handleLinkWallet}
-          disabled={
-            authStatus !== "logged-in" || !wallet || linkWallet.isPending
-          }
-          aria-label="Link Crossmint wallet to Dinari"
-        >
-          {linkWallet.isPending ? "Linking…" : "Link Wallet"}
-        </button>
+          {linkError && (
+            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              {linkError}
+            </div>
+          )}
+          {isManagedSandbox ? (
+            <button
+              type="button"
+              className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              onClick={() => refetchSession()}
+              aria-label="Refresh Dinari session"
+            >
+              Refresh session
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+              onClick={handleLinkWallet}
+              disabled={authStatus !== "logged-in" || !wallet || linkWallet.isPending}
+              aria-label="Link Crossmint wallet to Dinari"
+            >
+              {linkWallet.isPending ? "Linking…" : "Link Wallet"}
+            </button>
+          )}
+        </div>
       </div>
     );
   }
 
   if (session.kycStatus !== "APPROVED") {
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-xl font-semibold text-slate-900">KYC Verification Required</h2>
-        <p className="mb-4 text-slate-600">
-          Your wallet is linked. Complete KYC in the Dinari Partners portal before trading.
-        </p>
-        <div className="rounded-lg bg-yellow-50 p-4">
-          <p className="text-sm text-yellow-800">
-            Entity ID: <span className="font-mono text-xs">{session.entityId}</span>
+      <div className="space-y-6">
+        <SandboxManagedWalletPanel session={session} />
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="mb-4 text-xl font-semibold text-slate-900">KYC Verification Required</h2>
+          <p className="mb-4 text-slate-600">
+            {session.walletKind === "managed"
+              ? "Managed wallet is ready. Complete KYC in the Dinari Partners portal before trading."
+              : "Your wallet is linked. Complete KYC in the Dinari Partners portal before trading."}
           </p>
-          <p className="text-sm text-yellow-800">Status: {session.kycStatus}</p>
-          <p className="text-sm text-yellow-800">Mode: {session.mode}</p>
+          <div className="rounded-lg bg-yellow-50 p-4">
+            <p className="text-sm text-yellow-800">
+              Entity ID: <span className="font-mono text-xs">{session.entityId}</span>
+            </p>
+            <p className="text-sm text-yellow-800">Status: {session.kycStatus}</p>
+            <p className="text-sm text-yellow-800">Mode: {session.mode}</p>
+          </div>
+          <button
+            type="button"
+            className="mt-4 rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            onClick={() => refetchSession()}
+            aria-label="Refresh KYC status"
+          >
+            Refresh status
+          </button>
         </div>
-        <button
-          type="button"
-          className="mt-4 rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-          onClick={() => refetchSession()}
-          aria-label="Refresh KYC status"
-        >
-          Refresh status
-        </button>
       </div>
     );
   }
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div className="space-y-6">
+      <SandboxManagedWalletPanel session={session} />
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-xl font-semibold text-slate-900">Stock Trading</h2>
         <div className="rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-800">
-          KYC Approved · Wallet Linked
+          KYC Approved ·{" "}
+          {session.walletKind === "managed" ? "Managed wallet" : "Wallet Linked"}
         </div>
       </div>
 
@@ -367,6 +397,7 @@ export function DinariStockTrading() {
           )}
         </div>
       </div>
+    </div>
     </div>
   );
 }

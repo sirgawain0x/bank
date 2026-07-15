@@ -44,10 +44,15 @@ DINARI_API_KEY_ID=your_dinari_api_key_id
 DINARI_API_SECRET_KEY=your_dinari_api_secret_key
 NEXT_PUBLIC_DINARI_ENVIRONMENT=sandbox # or production
 
-# Sandbox only — paste entity (and optional account) from Dinari Partners dashboard
+# Sandbox only — paste entity (and optional managed account) from Dinari Partners dashboard
 DINARI_SANDBOX_ENTITY_ID=your_dashboard_entity_id
+# When set, the app always uses this account and skips Crossmint EIP-191 linking
+# if the wallet is Dinari-managed (Fordefi EOA)
 DINARI_SANDBOX_ACCOUNT_ID=
+DINARI_SANDBOX_WALLET_ADDRESS=
 ```
+
+**Sandbox managed-wallet testing:** Set `DINARI_SANDBOX_ACCOUNT_ID` + `DINARI_SANDBOX_WALLET_ADDRESS` to your Partners-portal managed EOA (e.g. Fordefi-backed). The `/dinari` page shows that trading wallet and treats the session as linked without Crossmint signing.
 
 **Staging (Vercel):** `NEXT_PUBLIC_DINARI_ENVIRONMENT=sandbox` + `DINARI_SANDBOX_ENTITY_ID=<dashboard entity>`  
 **Production (Vercel):** `NEXT_PUBLIC_DINARI_ENVIRONMENT=production` — do not set sandbox entity ENV; entities are created per user.
