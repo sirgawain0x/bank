@@ -40,12 +40,16 @@ const resolveAccountId = async (entityId: string, preferredAccountId?: string): 
 const isWalletLinked = async (accountId: string, walletAddress: string): Promise<boolean> => {
   try {
     const wallet = await dinariClient.v2.accounts.wallet.get(accountId);
-    const matchesCrossmint =
-      wallet.address.toLowerCase() === walletAddress.toLowerCase();
+    const linkedAddress = wallet?.address?.toLowerCase();
+    if (!linkedAddress) {
+      return false;
+    }
+
+    const matchesCrossmint = linkedAddress === walletAddress.toLowerCase();
 
     // Sandbox: Dinari-managed EOAs are already active in the Partners portal —
     // treat the account as linked without requiring Crossmint SCW = same address.
-    if (getDinariMode() === "sandbox" && wallet.is_managed_wallet) {
+    if (getDinariMode() === "sandbox" && wallet?.is_managed_wallet) {
       return true;
     }
 

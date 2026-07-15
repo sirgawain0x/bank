@@ -1,14 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { EVMWallet, useWallet } from "@crossmint/client-sdk-react-ui";
 
-/** Prefilled from Dinari Partners portal — editable if you generate a fresh nonce. */
-const DEFAULT_DINARI_PORTAL_MESSAGE = `By signing this message, I affirm that I am the rightful and exclusive owner of this wallet and I agree to the terms set forth by Dinari found at https://dinari.com/terms .
+const PLACEHOLDER_WALLET = "0xYOUR_WALLET_ADDRESS";
 
-Wallet Address: 0xe87d349864E6a4c75F1dc64Cb3a6dB7f3Cd6109b
-Date: 2026-07-15T16:55:49.731887+00:00
-Nonce: 019f66b4-c17e-73be-8adb-48022a3769a3`;
+/** Template — wallet address is filled from the connected Crossmint wallet. */
+const buildDefaultDinariPortalMessage = (walletAddress: string) =>
+  `By signing this message, I affirm that I am the rightful and exclusive owner of this wallet and I agree to the terms set forth by Dinari found at https://dinari.com/terms .
+
+Wallet Address: ${walletAddress}
+Date: 
+Nonce: `;
 
 /**
  * Sign an EIP-191 message from the Dinari Partners portal with the Crossmint wallet,
@@ -16,11 +19,31 @@ Nonce: 019f66b4-c17e-73be-8adb-48022a3769a3`;
  */
 export function DinariPortalSignHelper() {
   const { wallet } = useWallet();
-  const [message, setMessage] = useState(DEFAULT_DINARI_PORTAL_MESSAGE);
+  const [message, setMessage] = useState(() =>
+    buildDefaultDinariPortalMessage(PLACEHOLDER_WALLET)
+  );
   const [signature, setSignature] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSigning, setIsSigning] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // Keep the "Wallet Address:" line in sync with the connected Crossmint wallet
+  useEffect(() => {
+    const address = wallet?.address;
+    if (!address) return;
+
+    setMessage((prev) => {
+      const next = prev.replace(
+        /(Wallet Address:\s*)(0x[a-fA-F0-9]{40}|0xYOUR_WALLET_ADDRESS)/,
+        `$1${address}`
+      );
+      // If the template had no address line match yet, inject connected address into the default template
+      if (next === prev && prev.includes(PLACEHOLDER_WALLET)) {
+        return buildDefaultDinariPortalMessage(address);
+      }
+      return next;
+    });
+  }, [wallet?.address]);
 
   const handleSign = async () => {
     if (!wallet) {
@@ -63,13 +86,12 @@ export function DinariPortalSignHelper() {
       <h2 className="mb-2 text-lg font-semibold text-slate-900">Dinari Portal Signature Helper</h2>
       <p className="mb-4 text-sm text-slate-600">
         Paste the verification message from the Dinari Partners portal (step 2), sign with your
-        Crossmint wallet, then paste the signature into step 3.
+        Crossmint wallet, then paste the signature into step 3. The wallet address line updates
+        automatically to your connected Crossmint address.
       </p>
 
       {wallet?.address && (
-        <p className="mb-3 font-mono text-xs text-slate-500">
-          Connected: {wallet.address}
-        </p>
+        <p className="mb-3 font-mono text-xs text-slate-500">Connected: {wallet.address}</p>
       )}
 
       <label htmlFor="dinari-portal-message" className="mb-1 block text-sm font-medium text-slate-700">
