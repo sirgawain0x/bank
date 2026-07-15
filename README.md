@@ -19,6 +19,7 @@
 - [Deploy](#deploy)
 - [Setup](#setup)
 - [DeFi Strategies](#defi-strategies)
+- [Stock Trading with Dinari](#stock-trading-with-dinari)
 - [Using another chain](#using-another-chain)
 - [Using in production](#using-in-production)
   - [Enabling Withdrawals](#enabling-withdrawals)
@@ -160,6 +161,49 @@ Premium strategies protected by Unlock Protocol NFT memberships:
 - **Membership Management**: Integrated NFT-based authentication
 
 Visit `/strategies` in your app to see all available DeFi products.
+
+## Stock Trading with Dinari
+
+Creative Bank now integrates with Dinari to offer tokenized real-world assets (stocks) directly within your existing fintech suite. Users can purchase, hold, and manage tokenized 1:1 backed US equities (dShares™) directly on the Base network using USDC.
+
+### Features
+
+- **Tokenized Stock Trading**: Buy and sell tokenized stocks (e.g., dAAPL, dTSLA) using USDC from your Creative Bank account
+- **Real-time Pricing**: Access real-time price feeds for available stocks
+- **Direct Integration**: Seamless integration with your existing Base-based lending/vault infrastructure
+- **KYC Compliance**: Built-in identity verification that maps to Dinari's Entity Management requirements
+- **Secure Wallet Management**: Connect your EVM wallet to execute trades and custody dShares
+
+### Getting Started
+
+1. Navigate to the "Stock Trading" section from your dashboard
+2. Complete KYC verification to create your Dinari entity
+3. Wait for KYC approval (typically 1-2 business days)
+4. Browse available tokenized stocks
+5. Place buy/sell orders using your USDC balance
+6. Track your portfolio and order history
+
+### Compliance Requirements
+
+- **KYC Verification**: All users must complete identity verification before trading
+- **Approved Status**: Only users with APPROVED KYC status can place trades
+- **Wallet Linking**: Trading accounts must be linked to verified wallet addresses
+- **Market Hours**: Trading is limited to regular market hours for each asset
+
+### Technical Implementation
+
+The integration uses the Dinari Enterprise API (v2) with the following components:
+
+- **Backend API Routes**: `/api/dinari/*` for secure server-side communication
+- **Frontend Hooks**: `useDinariStocks`, `useDinariStockPrice`, `useDinariOrders` for data fetching
+- **UI Components**: `DinariStockTrading`, `DinariDashboard` for user interface
+- **Environment Configuration**: `DINARI_API_KEY_ID`, `DINARI_API_SECRET_KEY` for authentication
+
+### Security
+
+- All API calls are made through secure backend routes
+- User wallet connections are handled through the existing Crossmint infrastructure
+- KYC compliance is managed through the integrated Entity Management system
 
 ## Using another chain
 

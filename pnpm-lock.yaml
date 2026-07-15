@@ -29,6 +29,9 @@ importers:
       '@crossmint/server-sdk':
         specifier: ^1.2.73
         version: 1.2.73(@solana/web3.js@1.98.1(bufferutil@4.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10))(bufferutil@4.1.0)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.22.4)
+      '@dinari/api-sdk':
+        specifier: ^0.15.0
+        version: 0.15.0
       '@heroicons/react':
         specifier: ^2.2.0
         version: 2.2.0(react@19.2.5)
@@ -1014,6 +1017,9 @@ packages:
     peerDependenciesMeta:
       '@datadog/browser-rum':
         optional: true
+
+  '@dinari/api-sdk@0.15.0':
+    resolution: {integrity: sha512-+5JQsGWDGBeMpyEjZdEyEx6NpwjqxYZQpTlt3lvWzbORTVI+bPryhdXq/0T8saz46sKY3+8jDV6v3oocM7R2vg==}
 
   '@dynamic-labs-sdk/assert-package-version@0.0.1-alpha.24':
     resolution: {integrity: sha512-6QNacJI5kNwBQ/5XEVAk7C3tQVqcmzoJVKvJwImjiFQUCVtwS95QS5I8ZC9z10Sj/6rSIDGaobKWpf2F78423w==}
@@ -9131,6 +9137,8 @@ snapshots:
   '@datadog/browser-logs@6.24.1':
     dependencies:
       '@datadog/browser-core': 6.24.1
+
+  '@dinari/api-sdk@0.15.0': {}
 
   '@dynamic-labs-sdk/assert-package-version@0.0.1-alpha.24': {}
 

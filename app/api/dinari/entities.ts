@@ -1,0 +1,61 @@
+import { NextRequest, NextResponse } from "next/server";
+import { dinariClient } from "@/lib/dinari/client";
+
+/**
+ * POST /api/dinari/entities
+ * Create a new entity (KYC) in Dinari
+ */
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { name } = body;
+    
+    if (!name) {
+      return NextResponse.json(
+        { error: "Missing required field: name" },
+        { status: 400 }
+      );
+    }
+    
+    // Create entity in Dinari
+    const entity = await dinariClient.v2.entities.create({
+      name
+    });
+    
+    return NextResponse.json(entity);
+  } catch (error: any) {
+    console.error("Failed to create Dinari entity:", error.message);
+    return NextResponse.json(
+      { error: "Failed to create entity", details: error.message },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * GET /api/dinari/entities/[id]
+ * Get entity details from Dinari
+ */
+export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    const { id } = params;
+    
+    if (!id) {
+      return NextResponse.json(
+        { error: "Entity ID is required" },
+        { status: 400 }
+      );
+    }
+    
+    // Get entity details
+    const entity = await dinariClient.v2.entities.retrieveByID(id);
+    
+    return NextResponse.json(entity);
+  } catch (error: any) {
+    console.error(`Failed to fetch Dinari entity ${params.id}:`, error.message);
+    return NextResponse.json(
+      { error: "Failed to fetch entity", details: error.message },
+      { status: 500 }
+    );
+  }
+}
