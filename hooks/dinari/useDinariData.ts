@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/context/AuthContext";
 
 interface DinariStock {
   id: string;
@@ -34,10 +35,20 @@ interface DinariEntity {
  * Hook to fetch available stocks from Dinari
  */
 export function useDinariStocks() {
+  const { jwt } = useAuth();
+  
   return useQuery<DinariStock[]>({
     queryKey: ['dinari', 'stocks'],
     queryFn: async () => {
-      const response = await fetch('/api/dinari/stocks');
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      
+      if (jwt) {
+        headers['Authorization'] = `Bearer ${jwt}`;
+      }
+      
+      const response = await fetch('/api/dinari/stocks', { headers });
       if (!response.ok) {
         throw new Error('Failed to fetch stocks');
       }
@@ -51,13 +62,23 @@ export function useDinariStocks() {
  * Hook to fetch a specific stock price from Dinari
  */
 export function useDinariStockPrice(symbol: string) {
+  const { jwt } = useAuth();
+  
   return useQuery<{
     symbol: string;
     price: number;
   }>({
     queryKey: ['dinari', 'stock', symbol],
     queryFn: async () => {
-      const response = await fetch(`/api/dinari/stocks/${symbol}`);
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      
+      if (jwt) {
+        headers['Authorization'] = `Bearer ${jwt}`;
+      }
+      
+      const response = await fetch(`/api/dinari/price?symbol=${symbol}`, { headers });
       if (!response.ok) {
         throw new Error('Failed to fetch stock price');
       }
@@ -72,10 +93,20 @@ export function useDinariStockPrice(symbol: string) {
  * Hook to fetch orders from Dinari
  */
 export function useDinariOrders() {
+  const { jwt } = useAuth();
+  
   return useQuery<DinariOrder[]>({
     queryKey: ['dinari', 'orders'],
     queryFn: async () => {
-      const response = await fetch('/api/dinari/orders');
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      
+      if (jwt) {
+        headers['Authorization'] = `Bearer ${jwt}`;
+      }
+      
+      const response = await fetch('/api/dinari/orders', { headers });
       if (!response.ok) {
         throw new Error('Failed to fetch orders');
       }
@@ -89,10 +120,20 @@ export function useDinariOrders() {
  * Hook to fetch entity details from Dinari
  */
 export function useDinariEntity(entityId: string) {
+  const { jwt } = useAuth();
+  
   return useQuery<DinariEntity>({
     queryKey: ['dinari', 'entity', entityId],
     queryFn: async () => {
-      const response = await fetch(`/api/dinari/entities/${entityId}`);
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      
+      if (jwt) {
+        headers['Authorization'] = `Bearer ${jwt}`;
+      }
+      
+      const response = await fetch(`/api/dinari/entities/${entityId}`, { headers });
       if (!response.ok) {
         throw new Error('Failed to fetch entity');
       }

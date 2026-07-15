@@ -23,7 +23,7 @@ export function DinariStockTrading() {
   const [entityId, setEntityId] = useState<string | null>(null);
   const [kycStatus, setKycStatus] = useState<string | null>(null);
   
-  const { status: authStatus } = useAuth();
+  const { status: authStatus, jwt } = useAuth();
   const { wallet } = useWallet();
   
   const { data: stocks, isLoading: stocksLoading, error: stocksError } = useDinariStocks();
@@ -48,11 +48,17 @@ export function DinariStockTrading() {
     if (authStatus !== "logged-in" || !wallet) return;
     
     try {
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      
+      if (jwt) {
+        headers['Authorization'] = `Bearer ${jwt}`;
+      }
+      
       const response = await fetch("/api/dinari/entities", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers,
         body: JSON.stringify({
           name: "Creative Bank User",
           email: "user@example.com", // This would come from auth context
@@ -82,11 +88,17 @@ export function DinariStockTrading() {
     
     setIsSubmitting(true);
     try {
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      
+      if (jwt) {
+        headers['Authorization'] = `Bearer ${jwt}`;
+      }
+      
       const response = await fetch("/api/dinari/orders", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers,
         body: JSON.stringify({
           entityId: entityId,
           assetId: selectedStock.id,

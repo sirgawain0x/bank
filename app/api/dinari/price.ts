@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { dinariClient } from "@/lib/dinari/client";
+import { requireAuthedWallet } from "@/lib/apiAuth";
 
 /**
  * GET /api/dinari/price?symbol=AAPL
@@ -7,6 +8,13 @@ import { dinariClient } from "@/lib/dinari/client";
  */
 export async function GET(request: NextRequest) {
   try {
+    // Require authentication
+    const authResult = await requireAuthedWallet(request);
+    if (!authResult.ok) {
+      return authResult.response;
+    }
+    const { userId, walletAddress } = authResult.session;
+    
     const { searchParams } = new URL(request.url);
     const symbol = searchParams.get('symbol');
     

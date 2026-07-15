@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { dinariClient } from "@/lib/dinari/client";
+import { requireAuthedWallet } from "@/lib/apiAuth";
 
 /**
  * POST /api/dinari/orders
@@ -7,6 +8,13 @@ import { dinariClient } from "@/lib/dinari/client";
  */
 export async function POST(request: NextRequest) {
   try {
+    // Require authentication
+    const authResult = await requireAuthedWallet(request);
+    if (!authResult.ok) {
+      return authResult.response;
+    }
+    const { userId, walletAddress } = authResult.session;
+    
     const body = await request.json();
     const { entityId, assetId, quantity, orderType } = body;
     
@@ -39,8 +47,15 @@ export async function POST(request: NextRequest) {
  * GET /api/dinari/orders
  * List orders from Dinari
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    // Require authentication
+    const authResult = await requireAuthedWallet(request);
+    if (!authResult.ok) {
+      return authResult.response;
+    }
+    const { userId, walletAddress } = authResult.session;
+    
     // List orders from Dinari
     const orders = await dinariClient.v2.listOrders();
     
