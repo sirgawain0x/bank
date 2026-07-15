@@ -15,13 +15,24 @@ This document describes the integration of Dinari's v2 Enterprise API into the C
 
 2. **Backend API Routes**
    - `/api/dinari/stocks` - Fetch available stocks
-   - `/api/dinari/stocks/[symbol]` - Fetch specific stock prices
-   - `/api/dinari/entities` - Manage user KYC entities
+   - `/api/dinari/price` - Fetch specific stock prices
+   - `/api/dinari/session` - Resolve entity/account (sandbox ENV vs production per-user)
+   - `/api/dinari/wallet/nonce` / `/api/dinari/wallet/connect` - Link Crossmint wallet
+   - `/api/dinari/entities/[id]` - Entity KYC status
    - `/api/dinari/orders` - List and create orders
 
 3. **Library Integration**
    - `@dinari/api-sdk` for server-side API communication
    - Custom TypeScript types for Dinari responses
+
+## Dual-mode entity resolution
+
+| Mode | `NEXT_PUBLIC_DINARI_ENVIRONMENT` | Entity source |
+|---|---|---|
+| Sandbox (staging) | `sandbox` | Fixed `DINARI_SANDBOX_ENTITY_ID` from your Dinari dashboard |
+| Production | `production` | Per-user entity/account stored on `users` (`dinari_entity_id`, `dinari_account_id`) |
+
+Wallet linking (nonce → Crossmint `signMessage` → connect) runs in both modes.
 
 ## Implementation Details
 
@@ -32,7 +43,14 @@ This document describes the integration of Dinari's v2 Enterprise API into the C
 DINARI_API_KEY_ID=your_dinari_api_key_id
 DINARI_API_SECRET_KEY=your_dinari_api_secret_key
 NEXT_PUBLIC_DINARI_ENVIRONMENT=sandbox # or production
+
+# Sandbox only — paste entity (and optional account) from Dinari Partners dashboard
+DINARI_SANDBOX_ENTITY_ID=your_dashboard_entity_id
+DINARI_SANDBOX_ACCOUNT_ID=
 ```
+
+**Staging (Vercel):** `NEXT_PUBLIC_DINARI_ENVIRONMENT=sandbox` + `DINARI_SANDBOX_ENTITY_ID=<dashboard entity>`  
+**Production (Vercel):** `NEXT_PUBLIC_DINARI_ENVIRONMENT=production` — do not set sandbox entity ENV; entities are created per user.
 
 ### Client Initialization
 
@@ -54,21 +72,28 @@ All Dinari API calls are made through secure backend routes to protect API crede
 
 1. **Stock Data**
    - `GET /api/dinari/stocks` - List all available stocks
-   - `GET /api/dinari/stocks/[symbol]` - Get current price for a specific stock
+   - `GET /api/dinari/price?symbol=` - Get current price for a specific stock
 
-2. **Entity Management (KYC)**
-   - `POST /api/dinari/entities` - Create new entity for KYC verification
-   - `GET /api/dinari/entities/[id]` - Get entity details and KYC status
+2. **Session & Wallet**
+   - `GET /api/dinari/session` - Resolve mode, entityId, accountId, KYC status, walletLinked
+   - `POST /api/dinari/wallet/nonce` - Get message for Crossmint to sign
+   - `POST /api/dinari/wallet/connect` - Submit signature to link wallet
 
-3. **Order Management**
-   - `GET /api/dinari/orders` - List orders
-   - `POST /api/dinari/orders` - Create new order
+3. **Entity Management (KYC)**
+   - `GET /api/dinari/entities/[id]` - Get entity details (ownership-checked)
+
+4. **Order Management**
+   - `GET /api/dinari/orders` - List orders for the caller's account only
+   - `POST /api/dinari/orders` - Create new order (entity ownership-checked)
 
 ### Frontend Hooks
 
 Custom React hooks provide easy access to Dinari data:
 
 ```typescript
+// Resolve entity/account for the logged-in user
+const { data: session, isLoading, error } = useDinariSession();
+
 // Fetch available stocks
 const { data: stocks, isLoading, error } = useDinariStocks();
 
@@ -96,10 +121,10 @@ const { data: entity, isLoading, error } = useDinariEntity(entityId);
 
 ### KYC Verification Process
 
-1. **Entity Creation**: Users must create a Dinari entity with their personal information
-2. **Verification Status**: Users must have APPROVED status before placing trades
-3. **Wallet Linking**: User wallets must be linked to their Dinari entity
-4. **Ongoing Compliance**: Entity status is checked before each trade
+1. **Entity resolution**: Sandbox uses `DINARI_SANDBOX_ENTITY_ID`; production creates/persists a per-user entity
+2. **Wallet linking**: Crossmint smart wallet signs Dinari nonce (ERC-1271) then `wallet.external.connect`
+3. **Verification Status**: Users must have completed KYC (`is_kyc_complete`) before placing trades
+4. **Ongoing Compliance**: Session KYC + wallet-linked flags are checked before each trade
 
 ### Order Placement Requirements
 

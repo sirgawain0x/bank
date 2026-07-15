@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { dinariClient } from "@/lib/dinari/client";
 import { requireAuthedWallet } from "@/lib/apiAuth";
+import { requireOwnedDinariIds } from "@/lib/dinari/session";
 
 /**
  * POST /api/dinari/orders
- * Create a new order in Dinari
+ * Create a new order in Dinari (entity must belong to the authed user).
  */
 export async function POST(request: NextRequest) {
   try {
-    // Require authentication
     const authResult = await requireAuthedWallet(request);
     if (!authResult.ok) {
       return authResult.response;
@@ -24,45 +24,56 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create order in Dinari
-    // Note: This is a placeholder - actual implementation depends on Dinari SDK methods
+    const ownership = await requireOwnedDinariIds({
+      userId: authResult.session.userId,
+      walletAddress: authResult.session.walletAddress,
+      entityId,
+    });
+    if (!ownership.ok) {
+      return NextResponse.json({ error: ownership.error }, { status: ownership.status });
+    }
+
+    // Placeholder until order placement is wired to Dinari SDK
     return NextResponse.json({
       message: "Order creation endpoint ready - implementation pending Dinari SDK confirmation",
-      entityId,
+      entityId: ownership.entityId,
+      accountId: ownership.accountId,
       assetId,
       quantity,
       orderType,
     });
-  } catch (error: any) {
-    console.error("Failed to create Dinari order:", error.message);
-    return NextResponse.json(
-      { error: "Failed to create order", details: error.message },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    console.error("Failed to create Dinari order:", message);
+    return NextResponse.json({ error: "Failed to create order", details: message }, { status: 500 });
   }
 }
 
 /**
  * GET /api/dinari/orders
- * List orders from Dinari
+ * List orders for the authenticated user's Dinari account only.
  */
 export async function GET(request: NextRequest) {
   try {
-    // Require authentication
     const authResult = await requireAuthedWallet(request);
     if (!authResult.ok) {
       return authResult.response;
     }
 
-    // List orders from Dinari
-    const orders = await dinariClient.v2.listOrders();
+    const ownership = await requireOwnedDinariIds({
+      userId: authResult.session.userId,
+      walletAddress: authResult.session.walletAddress,
+    });
+    if (!ownership.ok) {
+      return NextResponse.json({ error: ownership.error }, { status: ownership.status });
+    }
 
-    return NextResponse.json(orders);
-  } catch (error: any) {
-    console.error("Failed to list Dinari orders:", error.message);
-    return NextResponse.json(
-      { error: "Failed to list orders", details: error.message },
-      { status: 500 }
-    );
+    const orders = await dinariClient.v2.accounts.orders.list(ownership.accountId);
+
+    return NextResponse.json(orders.data ?? []);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    console.error("Failed to list Dinari orders:", message);
+    return NextResponse.json({ error: "Failed to list orders", details: message }, { status: 500 });
   }
 }
