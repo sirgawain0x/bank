@@ -1,9 +1,20 @@
 import { dinariClient } from "@/lib/dinari/client";
 import { getPool } from "@/lib/cockroachdb";
 import { getWalletChain } from "@/lib/walletConfig";
-import type { DinariMode, DinariSession, DinariWalletChainId } from "@/lib/dinari/types";
+import type {
+  DinariMode,
+  DinariSession,
+  DinariWalletChainId,
+  DinariWalletKind,
+} from "@/lib/dinari/types";
 
-export type { DinariMode, DinariSession, DinariWalletChainId };
+export type { DinariMode, DinariSession, DinariWalletChainId, DinariWalletKind };
+
+/** Optional override / display address for sandbox managed (Fordefi) EOA */
+export const getSandboxManagedWalletAddress = (): string | null => {
+  const fromEnv = process.env.DINARI_SANDBOX_WALLET_ADDRESS?.trim();
+  return fromEnv ? fromEnv.toLowerCase() : null;
+};
 
 export const getDinariMode = (): DinariMode => {
   const env = process.env.NEXT_PUBLIC_DINARI_ENVIRONMENT;
@@ -37,26 +48,64 @@ const resolveAccountId = async (entityId: string, preferredAccountId?: string): 
   return created.id;
 };
 
-const isWalletLinked = async (accountId: string, walletAddress: string): Promise<boolean> => {
+type AccountWalletSnapshot = {
+  address: string | null;
+  isManaged: boolean;
+};
+
+const getAccountWalletSnapshot = async (accountId: string): Promise<AccountWalletSnapshot> => {
   try {
     const wallet = await dinariClient.v2.accounts.wallet.get(accountId);
-    const linkedAddress = wallet?.address?.toLowerCase();
-    if (!linkedAddress) {
-      return false;
-    }
-
-    const matchesCrossmint = linkedAddress === walletAddress.toLowerCase();
-
-    // Sandbox: Dinari-managed EOAs are already active in the Partners portal —
-    // treat the account as linked without requiring Crossmint SCW = same address.
-    if (getDinariMode() === "sandbox" && wallet?.is_managed_wallet) {
-      return true;
-    }
-
-    return matchesCrossmint;
+    return {
+      address: wallet?.address?.toLowerCase() ?? null,
+      isManaged: Boolean(wallet?.is_managed_wallet),
+    };
   } catch {
+    return { address: null, isManaged: false };
+  }
+};
+
+const resolveWalletKind = (
+  snapshot: AccountWalletSnapshot,
+  accountId: string
+): DinariWalletKind => {
+  const preferredAccountId = process.env.DINARI_SANDBOX_ACCOUNT_ID?.trim();
+  // Interim sandbox: preferred Partners managed account is always treated as managed
+  if (getDinariMode() === "sandbox" && preferredAccountId && accountId === preferredAccountId) {
+    return "managed";
+  }
+  if (snapshot.isManaged) {
+    return "managed";
+  }
+  const configured = getSandboxManagedWalletAddress();
+  if (
+    getDinariMode() === "sandbox" &&
+    configured &&
+    snapshot.address &&
+    snapshot.address === configured
+  ) {
+    return "managed";
+  }
+  return "external";
+};
+
+/**
+ * External linking requires Crossmint address === Dinari wallet address.
+ * Sandbox managed (Fordefi) EOAs are already registered in Partners — skip EIP-191 link.
+ */
+const isWalletLinked = (
+  snapshot: AccountWalletSnapshot,
+  walletAddress: string,
+  walletKind: DinariWalletKind
+): boolean => {
+  if (getDinariMode() === "sandbox" && walletKind === "managed") {
+    // Prefer Dinari API address, but don't block testing if get() is empty for managed accounts
+    return Boolean(snapshot.address) || Boolean(getSandboxManagedWalletAddress());
+  }
+  if (!snapshot.address) {
     return false;
   }
+  return snapshot.address === walletAddress.toLowerCase();
 };
 
 const getKycStatus = async (
@@ -85,51 +134,33 @@ const persistAccountId = async (userId: string, accountId: string): Promise<void
   );
 };
 
-const isUniqueViolation = (error: unknown): boolean => {
-  if (!error || typeof error !== "object") return false;
-  const code = "code" in error ? String((error as { code?: unknown }).code) : "";
-  // Postgres / Cockroach unique_violation
-  return code === "23505";
-};
-
 /**
- * Atomically claim DINARI_SANDBOX_ACCOUNT_ID for this user if unclaimed.
- * Relies on unique index idx_users_dinari_account_id to prevent double-claim races.
+ * Force this user onto DINARI_SANDBOX_ACCOUNT_ID (sandbox testing only).
+ * Releases the account from any other user so the shared managed wallet can be used.
  */
-const tryClaimSandboxAccountId = async (
+const forceClaimSandboxAccountId = async (
   userId: string,
   preferredAccountId: string
-): Promise<string | null> => {
+): Promise<string> => {
   const pool = getPool();
-  try {
-    const { rows } = await pool.query<{ dinari_account_id: string }>(
-      `UPDATE users
-       SET dinari_account_id = $1, updated_at = now()
-       WHERE crossmint_user_id = $2
-         AND dinari_account_id IS NULL
-         AND NOT EXISTS (
-           SELECT 1 FROM users other
-           WHERE other.dinari_account_id = $1
-         )
-       RETURNING dinari_account_id`,
-      [preferredAccountId, userId]
-    );
-    return rows[0]?.dinari_account_id ?? null;
-  } catch (error) {
-    if (isUniqueViolation(error)) {
-      return null;
-    }
-    throw error;
-  }
+  await pool.query(
+    `UPDATE users
+     SET dinari_account_id = NULL, dinari_wallet_linked_at = NULL, updated_at = now()
+     WHERE dinari_account_id = $1 AND crossmint_user_id <> $2`,
+    [preferredAccountId, userId]
+  );
+  await pool.query(
+    `UPDATE users SET dinari_account_id = $1, updated_at = now()
+     WHERE crossmint_user_id = $2`,
+    [preferredAccountId, userId]
+  );
+  return preferredAccountId;
 };
 
 /**
- * Resolve a unique sandbox account for this user under the shared sandbox entity.
- * Prefer a previously persisted account; optionally claim DINARI_SANDBOX_ACCOUNT_ID
- * atomically if unclaimed; otherwise create a new account.
- *
- * To switch onto a managed-wallet account: set DINARI_SANDBOX_ACCOUNT_ID, then clear
- * this user's dinari_account_id (NULL) once so the claim can succeed.
+ * Resolve sandbox account under the shared entity.
+ * When DINARI_SANDBOX_ACCOUNT_ID is set, always use that managed account (Fordefi EOA).
+ * Otherwise reuse a persisted account or create a new one.
  */
 const resolveSandboxAccountId = async (params: {
   userId: string;
@@ -138,19 +169,15 @@ const resolveSandboxAccountId = async (params: {
 }): Promise<string> => {
   const preferredAccountId = process.env.DINARI_SANDBOX_ACCOUNT_ID?.trim();
 
-  if (preferredAccountId && params.existingAccountId === preferredAccountId) {
-    return preferredAccountId;
+  if (preferredAccountId) {
+    if (params.existingAccountId === preferredAccountId) {
+      return preferredAccountId;
+    }
+    return forceClaimSandboxAccountId(params.userId, preferredAccountId);
   }
 
   if (params.existingAccountId) {
     return params.existingAccountId;
-  }
-
-  if (preferredAccountId) {
-    const claimed = await tryClaimSandboxAccountId(params.userId, preferredAccountId);
-    if (claimed) {
-      return claimed;
-    }
   }
 
   const created = await dinariClient.v2.entities.accounts.create(params.entityId);
@@ -260,8 +287,14 @@ export const resolveDinariSession = async (params: {
 
   const { kycComplete, kycStatus } = await getKycStatus(entityId);
 
+  const walletSnapshot = await getAccountWalletSnapshot(accountId);
+  const walletKind = resolveWalletKind(walletSnapshot, accountId);
+  const dinariWalletAddress =
+    walletSnapshot.address ??
+    (walletKind === "managed" ? getSandboxManagedWalletAddress() : null);
+
   // Always verify against Dinari so a changed/unlinked wallet cannot stay "linked"
-  const walletLinked = await isWalletLinked(accountId, params.walletAddress);
+  const walletLinked = isWalletLinked(walletSnapshot, params.walletAddress, walletKind);
   if (walletLinked && !row?.dinari_wallet_linked_at) {
     await markDinariWalletLinked(params.userId);
   } else if (!walletLinked && row?.dinari_wallet_linked_at) {
@@ -276,6 +309,8 @@ export const resolveDinariSession = async (params: {
     kycComplete,
     walletLinked,
     walletAddress: params.walletAddress,
+    dinariWalletAddress,
+    walletKind,
     chainId,
   };
 };

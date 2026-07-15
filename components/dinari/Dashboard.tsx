@@ -3,12 +3,15 @@
 import { useState } from "react";
 import { DinariStockTrading } from "./StockTrading";
 import { DinariPortalSignHelper } from "./PortalSignHelper";
-import { useDinariStocks } from "@/hooks/dinari/useDinariData";
+import { useDinariSession, useDinariStocks } from "@/hooks/dinari/useDinariData";
 
 export function DinariDashboard() {
   const [activeTab, setActiveTab] = useState<"trade" | "portfolio" | "orders">("trade");
 
+  const { data: session } = useDinariSession();
   const { data: stocks, isLoading, error } = useDinariStocks();
+  const showPortalSignHelper =
+    session?.mode === "production" || session?.walletKind === "external";
 
   if (isLoading) {
     return (
@@ -24,7 +27,7 @@ export function DinariDashboard() {
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
           Failed to load Dinari data: {error.message}
         </div>
-        <DinariPortalSignHelper />
+        {showPortalSignHelper ? <DinariPortalSignHelper /> : null}
       </div>
     );
   }
@@ -34,7 +37,9 @@ export function DinariDashboard() {
       <div className="mb-6 flex flex-col gap-2">
         <h1 className="text-2xl font-bold text-slate-900">Stock Trading</h1>
         <p className="text-sm text-slate-600">
-          Trade tokenized stocks directly from your Creative Bank account
+          {session?.walletKind === "managed"
+            ? "Sandbox: trading against your Dinari managed (Fordefi) wallet"
+            : "Trade tokenized stocks directly from your Creative Bank account"}
         </p>
       </div>
 
@@ -102,7 +107,7 @@ export function DinariDashboard() {
         )}
       </div>
 
-      <DinariPortalSignHelper />
+      {showPortalSignHelper ? <DinariPortalSignHelper /> : null}
     </div>
   );
 }
