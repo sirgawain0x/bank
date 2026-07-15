@@ -5,11 +5,12 @@ import { dinariClient } from "@/lib/dinari/client";
  * GET /api/dinari/stocks/[symbol]
  * Fetch specific stock details from Dinari
  */
-export async function GET(request: NextRequest, { params }: { params: { symbol: string } }) {
+export async function GET(request: NextRequest, context: { params: Promise<{ symbol: string }> }) {
   try {
-    const { symbol } = params;
+    const params = await context.params;
+    const stockSymbol = params.symbol;
     
-    if (!symbol) {
+    if (!stockSymbol) {
       return NextResponse.json(
         { error: "Symbol is required" },
         { status: 400 }
@@ -17,14 +18,14 @@ export async function GET(request: NextRequest, { params }: { params: { symbol: 
     }
     
     // Fetch specific stock price
-    const price = await dinariClient.v2.marketData.stocks.retrieveCurrentPrice(symbol);
+    const price = await dinariClient.v2.marketData.stocks.retrieveCurrentPrice(stockSymbol);
     
     return NextResponse.json({
-      symbol,
+      symbol: stockSymbol,
       price
     });
   } catch (error: any) {
-    console.error(`Failed to fetch Dinari stock ${params.symbol}:`, error.message);
+    console.error(`Failed to fetch Dinari stock:`, error.message);
     return NextResponse.json(
       { error: "Failed to fetch stock", details: error.message },
       { status: 500 }
