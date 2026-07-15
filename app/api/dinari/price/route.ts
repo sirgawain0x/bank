@@ -13,24 +13,20 @@ export async function GET(request: NextRequest) {
     if (!authResult.ok) {
       return authResult.response;
     }
-    const { userId, walletAddress } = authResult.session;
-    
+
     const { searchParams } = new URL(request.url);
-    const symbol = searchParams.get('symbol');
-    
+    const symbol = searchParams.get("symbol");
+
     if (!symbol) {
-      return NextResponse.json(
-        { error: "Symbol is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Symbol is required" }, { status: 400 });
     }
-    
+
     // Fetch specific stock price
     const price = await dinariClient.v2.marketData.stocks.retrieveCurrentPrice(symbol);
-    
+
     return NextResponse.json({
       symbol,
-      price
+      price,
     });
   } catch (error: any) {
     console.error(`Failed to fetch Dinari stock price:`, error.message);

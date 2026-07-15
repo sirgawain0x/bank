@@ -13,18 +13,17 @@ export async function POST(request: NextRequest) {
     if (!authResult.ok) {
       return authResult.response;
     }
-    const { userId, walletAddress } = authResult.session;
-    
+
     const body = await request.json();
     const { entityId, assetId, quantity, orderType } = body;
-    
+
     if (!entityId || !assetId || !quantity || !orderType) {
       return NextResponse.json(
         { error: "Missing required fields: entityId, assetId, quantity, orderType" },
         { status: 400 }
       );
     }
-    
+
     // Create order in Dinari
     // Note: This is a placeholder - actual implementation depends on Dinari SDK methods
     return NextResponse.json({
@@ -32,7 +31,7 @@ export async function POST(request: NextRequest) {
       entityId,
       assetId,
       quantity,
-      orderType
+      orderType,
     });
   } catch (error: any) {
     console.error("Failed to create Dinari order:", error.message);
@@ -54,11 +53,10 @@ export async function GET(request: NextRequest) {
     if (!authResult.ok) {
       return authResult.response;
     }
-    const { userId, walletAddress } = authResult.session;
-    
+
     // List orders from Dinari
     const orders = await dinariClient.v2.listOrders();
-    
+
     return NextResponse.json(orders);
   } catch (error: any) {
     console.error("Failed to list Dinari orders:", error.message);

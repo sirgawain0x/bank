@@ -13,11 +13,10 @@ export async function GET(request: NextRequest) {
     if (!authResult.ok) {
       return authResult.response;
     }
-    const { userId, walletAddress } = authResult.session;
-    
+
     // Fetch available stocks
     const stocks = await dinariClient.v2.marketData.stocks.list();
-    
+
     return NextResponse.json(stocks);
   } catch (error: any) {
     console.error("Failed to fetch Dinari stocks:", error.message);
