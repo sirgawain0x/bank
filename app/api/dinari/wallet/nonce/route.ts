@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { assertWalletMatches, requireAuthedWallet } from "@/lib/apiAuth";
 import { dinariClient } from "@/lib/dinari/client";
 import { getDinariWalletChainId, requireOwnedDinariIds } from "@/lib/dinari/session";
-import type { DinariWalletChainId } from "@/lib/dinari/types";
 
 /**
  * POST /api/dinari/wallet/nonce
@@ -42,7 +41,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: ownership.error }, { status: ownership.status });
     }
 
-    const chainId = (body.chainId as DinariWalletChainId | undefined) ?? getDinariWalletChainId();
+    // Always use server-canonical chain (ignore client-supplied chainId)
+    const chainId = getDinariWalletChainId();
 
     const nonceResponse = await dinariClient.v2.accounts.wallet.external.getNonce(
       ownership.accountId,

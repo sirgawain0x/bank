@@ -6,7 +6,6 @@ import {
   markDinariWalletLinked,
   requireOwnedDinariIds,
 } from "@/lib/dinari/session";
-import type { DinariWalletChainId } from "@/lib/dinari/types";
 
 /**
  * POST /api/dinari/wallet/connect
@@ -20,12 +19,11 @@ export async function POST(request: NextRequest) {
       return authResult.response;
     }
 
-    const { accountId, walletAddress, nonce, signature, chainId: bodyChainId } = body as {
+    const { accountId, walletAddress, nonce, signature } = body as {
       accountId?: string;
       walletAddress?: string;
       nonce?: string;
       signature?: string;
-      chainId?: DinariWalletChainId;
     };
 
     if (!accountId || !walletAddress || !nonce || !signature) {
@@ -49,7 +47,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: ownership.error }, { status: ownership.status });
     }
 
-    const chainId = bodyChainId ?? getDinariWalletChainId();
+    // Always use server-canonical chain (ignore client-supplied chainId)
+    const chainId = getDinariWalletChainId();
 
     const wallet = await dinariClient.v2.accounts.wallet.external.connect(ownership.accountId, {
       chain_id: chainId,

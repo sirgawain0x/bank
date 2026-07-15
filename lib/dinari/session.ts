@@ -1,5 +1,6 @@
 import { dinariClient } from "@/lib/dinari/client";
 import { getPool } from "@/lib/cockroachdb";
+import { getWalletChain } from "@/lib/walletConfig";
 import type { DinariMode, DinariSession, DinariWalletChainId } from "@/lib/dinari/types";
 
 export type { DinariMode, DinariSession, DinariWalletChainId };
@@ -11,14 +12,10 @@ export const getDinariMode = (): DinariMode => {
 
 /**
  * CAIP-2 chain ID for Dinari wallet linking.
- * Base mainnet: eip155:8453; Base Sepolia: eip155:84532.
+ * Aligns with Crossmint `getWalletChain` (production always Base mainnet).
  */
 export const getDinariWalletChainId = (): DinariWalletChainId => {
-  const chain = process.env.NEXT_PUBLIC_CHAIN_ID;
-  if (chain === "base-sepolia") {
-    return "eip155:84532";
-  }
-  return "eip155:8453";
+  return getWalletChain() === "base-sepolia" ? "eip155:84532" : "eip155:8453";
 };
 
 const resolveAccountId = async (entityId: string, preferredAccountId?: string): Promise<string> => {
@@ -71,10 +68,48 @@ const persistAccountId = async (userId: string, accountId: string): Promise<void
   );
 };
 
+const isUniqueViolation = (error: unknown): boolean => {
+  if (!error || typeof error !== "object") return false;
+  const code = "code" in error ? String((error as { code?: unknown }).code) : "";
+  // Postgres / Cockroach unique_violation
+  return code === "23505";
+};
+
+/**
+ * Atomically claim DINARI_SANDBOX_ACCOUNT_ID for this user if unclaimed.
+ * Relies on unique index idx_users_dinari_account_id to prevent double-claim races.
+ */
+const tryClaimSandboxAccountId = async (
+  userId: string,
+  preferredAccountId: string
+): Promise<string | null> => {
+  const pool = getPool();
+  try {
+    const { rows } = await pool.query<{ dinari_account_id: string }>(
+      `UPDATE users
+       SET dinari_account_id = $1, updated_at = now()
+       WHERE crossmint_user_id = $2
+         AND dinari_account_id IS NULL
+         AND NOT EXISTS (
+           SELECT 1 FROM users other
+           WHERE other.dinari_account_id = $1
+         )
+       RETURNING dinari_account_id`,
+      [preferredAccountId, userId]
+    );
+    return rows[0]?.dinari_account_id ?? null;
+  } catch (error) {
+    if (isUniqueViolation(error)) {
+      return null;
+    }
+    throw error;
+  }
+};
+
 /**
  * Resolve a unique sandbox account for this user under the shared sandbox entity.
  * Prefer a previously persisted account; optionally claim DINARI_SANDBOX_ACCOUNT_ID
- * if no other user already owns it; otherwise create a new account.
+ * atomically if unclaimed; otherwise create a new account.
  */
 const resolveSandboxAccountId = async (params: {
   userId: string;
@@ -85,19 +120,11 @@ const resolveSandboxAccountId = async (params: {
     return params.existingAccountId;
   }
 
-  const pool = getPool();
   const preferredAccountId = process.env.DINARI_SANDBOX_ACCOUNT_ID?.trim();
-
   if (preferredAccountId) {
-    const { rows: claimed } = await pool.query<{ crossmint_user_id: string }>(
-      `SELECT crossmint_user_id FROM users
-       WHERE dinari_account_id = $1 AND crossmint_user_id <> $2
-       LIMIT 1`,
-      [preferredAccountId, params.userId]
-    );
-    if (claimed.length === 0) {
-      await persistAccountId(params.userId, preferredAccountId);
-      return preferredAccountId;
+    const claimed = await tryClaimSandboxAccountId(params.userId, preferredAccountId);
+    if (claimed) {
+      return claimed;
     }
   }
 
@@ -208,10 +235,12 @@ export const resolveDinariSession = async (params: {
 
   const { kycComplete, kycStatus } = await getKycStatus(entityId);
 
-  // Skip Dinari wallet lookup when we already persisted a successful link
-  let walletLinked = Boolean(row?.dinari_wallet_linked_at);
-  if (!walletLinked) {
-    walletLinked = await isWalletLinked(accountId, params.walletAddress);
+  // Always verify against Dinari so a changed/unlinked wallet cannot stay "linked"
+  const walletLinked = await isWalletLinked(accountId, params.walletAddress);
+  if (walletLinked && !row?.dinari_wallet_linked_at) {
+    await markDinariWalletLinked(params.userId);
+  } else if (!walletLinked && row?.dinari_wallet_linked_at) {
+    await clearDinariWalletLinked(params.userId);
   }
 
   return {
@@ -230,6 +259,15 @@ export const markDinariWalletLinked = async (userId: string): Promise<void> => {
   const pool = getPool();
   await pool.query(
     `UPDATE users SET dinari_wallet_linked_at = now(), updated_at = now()
+     WHERE crossmint_user_id = $1`,
+    [userId]
+  );
+};
+
+export const clearDinariWalletLinked = async (userId: string): Promise<void> => {
+  const pool = getPool();
+  await pool.query(
+    `UPDATE users SET dinari_wallet_linked_at = NULL, updated_at = now()
      WHERE crossmint_user_id = $1`,
     [userId]
   );

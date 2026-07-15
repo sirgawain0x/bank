@@ -196,6 +196,11 @@ export async function runMigration(): Promise<void> {
     ON users (dinari_entity_id)
     WHERE dinari_entity_id IS NOT NULL;
   `);
+  await db.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_users_dinari_account_id
+    ON users (dinari_account_id)
+    WHERE dinari_account_id IS NOT NULL;
+  `);
 
   // Webhook events — audit trail for Crossmint + Goldsky
   await db.query(`

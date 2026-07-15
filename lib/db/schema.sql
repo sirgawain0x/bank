@@ -23,6 +23,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_users_dinari_entity_id
   ON users (dinari_entity_id)
   WHERE dinari_entity_id IS NOT NULL;
 
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_dinari_account_id
+  ON users (dinari_account_id)
+  WHERE dinari_account_id IS NOT NULL;
+
 CREATE TABLE IF NOT EXISTS phone_otp_challenges (
   crossmint_user_id TEXT PRIMARY KEY,
   phone_number TEXT NOT NULL,
