@@ -350,7 +350,12 @@ export function DinariStockTrading() {
                     : "bg-red-600 hover:bg-red-700"
                 } ${isSubmitting ? "opacity-50" : ""}`}
                 onClick={handlePlaceOrder}
-                disabled={isSubmitting || !quantity || parseFloat(quantity) <= 0}
+                disabled={
+                  isSubmitting ||
+                  !quantity ||
+                  Number.isNaN(parseFloat(quantity)) ||
+                  parseFloat(quantity) <= 0
+                }
               >
                 {isSubmitting ? "Placing Order..." : `${orderType} ${selectedStock.symbol}`}
               </button>

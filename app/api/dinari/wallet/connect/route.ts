@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { assertWalletMatches, requireAuthedWallet } from "@/lib/apiAuth";
 import { dinariClient } from "@/lib/dinari/client";
-import { getDinariWalletChainId, markDinariWalletLinked } from "@/lib/dinari/session";
+import {
+  getDinariWalletChainId,
+  markDinariWalletLinked,
+  requireOwnedDinariIds,
+} from "@/lib/dinari/session";
 import type { DinariWalletChainId } from "@/lib/dinari/types";
 
 /**
@@ -36,9 +40,18 @@ export async function POST(request: NextRequest) {
       return mismatch;
     }
 
+    const ownership = await requireOwnedDinariIds({
+      userId: authResult.session.userId,
+      walletAddress: authResult.session.walletAddress,
+      accountId,
+    });
+    if (!ownership.ok) {
+      return NextResponse.json({ error: ownership.error }, { status: ownership.status });
+    }
+
     const chainId = bodyChainId ?? getDinariWalletChainId();
 
-    const wallet = await dinariClient.v2.accounts.wallet.external.connect(accountId, {
+    const wallet = await dinariClient.v2.accounts.wallet.external.connect(ownership.accountId, {
       chain_id: chainId,
       nonce,
       signature,

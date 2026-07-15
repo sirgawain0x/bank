@@ -80,11 +80,11 @@ All Dinari API calls are made through secure backend routes to protect API crede
    - `POST /api/dinari/wallet/connect` - Submit signature to link wallet
 
 3. **Entity Management (KYC)**
-   - `GET /api/dinari/entities/[id]` - Get entity details and KYC status
+   - `GET /api/dinari/entities/[id]` - Get entity details (ownership-checked)
 
 4. **Order Management**
-   - `GET /api/dinari/orders` - List orders
-   - `POST /api/dinari/orders` - Create new order
+   - `GET /api/dinari/orders` - List orders for the caller's account only
+   - `POST /api/dinari/orders` - Create new order (entity ownership-checked)
 
 ### Frontend Hooks
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { assertWalletMatches, requireAuthedWallet } from "@/lib/apiAuth";
 import { dinariClient } from "@/lib/dinari/client";
-import { getDinariWalletChainId } from "@/lib/dinari/session";
+import { getDinariWalletChainId, requireOwnedDinariIds } from "@/lib/dinari/session";
 import type { DinariWalletChainId } from "@/lib/dinari/types";
 
 /**
@@ -33,15 +33,27 @@ export async function POST(request: NextRequest) {
       return mismatch;
     }
 
+    const ownership = await requireOwnedDinariIds({
+      userId: authResult.session.userId,
+      walletAddress: authResult.session.walletAddress,
+      accountId,
+    });
+    if (!ownership.ok) {
+      return NextResponse.json({ error: ownership.error }, { status: ownership.status });
+    }
+
     const chainId = (body.chainId as DinariWalletChainId | undefined) ?? getDinariWalletChainId();
 
-    const nonceResponse = await dinariClient.v2.accounts.wallet.external.getNonce(accountId, {
-      chain_id: chainId,
-      wallet_address: walletAddress,
-    });
+    const nonceResponse = await dinariClient.v2.accounts.wallet.external.getNonce(
+      ownership.accountId,
+      {
+        chain_id: chainId,
+        wallet_address: walletAddress,
+      }
+    );
 
     return NextResponse.json({
-      accountId,
+      accountId: ownership.accountId,
       walletAddress,
       chainId,
       nonce: nonceResponse.nonce,

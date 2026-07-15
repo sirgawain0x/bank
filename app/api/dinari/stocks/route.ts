@@ -14,10 +14,20 @@ export async function GET(request: NextRequest) {
       return authResult.response;
     }
 
-    // Fetch available stocks
+    // Fetch available stocks (paginated envelope → array for the UI)
     const stocks = await dinariClient.v2.marketData.stocks.list();
+    const items = (stocks.data ?? []).map((stock) => ({
+      id: stock.id,
+      symbol: stock.symbol,
+      name: stock.name,
+      price: 0,
+      currency: "USD",
+      last_updated: "",
+      is_tradable: stock.is_tradable,
+      is_fractionable: stock.is_fractionable,
+    }));
 
-    return NextResponse.json(stocks);
+    return NextResponse.json(items);
   } catch (error: any) {
     console.error("Failed to fetch Dinari stocks:", error.message);
     return NextResponse.json(
