@@ -89,6 +89,8 @@ const { data: entity, isLoading, error } = useDinariEntity(entityId);
 3. **Wallet Integration**: User wallet connections leverage the existing Crossmint infrastructure
 4. **KYC Compliance**: Entity management ensures regulatory compliance with proper user verification
 5. **Order Authorization**: Orders can only be placed by users with approved KYC status
+6. **Authentication**: All API endpoints require Crossmint JWT authentication
+7. **Authorization**: Users can only access their own entities and orders
 
 ## Compliance Requirements
 
@@ -105,6 +107,7 @@ const { data: entity, isLoading, error } = useDinariEntity(entityId);
 2. **Valid Wallet**: Orders must be associated with a verified wallet address
 3. **Sufficient Funds**: Users must have sufficient USDC balance for purchases
 4. **Market Hours**: Orders can only be placed during market hours
+5. **Authentication Required**: All API calls require valid Crossmint JWT
 
 ## Future Enhancements
 
