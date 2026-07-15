@@ -197,7 +197,7 @@ The integration uses the Dinari Enterprise API (v2) with the following component
 - **Backend API Routes**: `/api/dinari/*` for secure server-side communication
 - **Frontend Hooks**: `useDinariStocks`, `useDinariStockPrice`, `useDinariOrders` for data fetching
 - **UI Components**: `DinariStockTrading`, `DinariDashboard` for user interface
-- **Environment Configuration**: `DINARI_API_KEY_ID`, `DINARI_API_SECRET_KEY` for authentication
+- **Environment Configuration**: `DINARI_API_KEY_ID`, `DINARI_API_SECRET_KEY`, `NEXT_PUBLIC_DINARI_ENVIRONMENT`; sandbox also needs `DINARI_SANDBOX_ENTITY_ID` (optional `DINARI_SANDBOX_ACCOUNT_ID`)
 
 ### Security
 

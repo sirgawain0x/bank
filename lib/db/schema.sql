@@ -9,12 +9,19 @@ CREATE TABLE IF NOT EXISTS users (
   phone_number_verified_at TIMESTAMPTZ,
   email_verified_at TIMESTAMPTZ,
   membership_tier TEXT,
+  dinari_entity_id TEXT,
+  dinari_account_id TEXT,
+  dinari_wallet_linked_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_wallet_address
   ON users (wallet_address);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_dinari_entity_id
+  ON users (dinari_entity_id)
+  WHERE dinari_entity_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS phone_otp_challenges (
   crossmint_user_id TEXT PRIMARY KEY,

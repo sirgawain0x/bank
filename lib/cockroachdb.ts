@@ -181,6 +181,22 @@ export async function runMigration(): Promise<void> {
     ALTER TABLE users ADD COLUMN IF NOT EXISTS collateral_assets JSONB DEFAULT '[]';
   `);
 
+  // Dinari entity/account linkage (production per-user; sandbox may also persist link time)
+  await db.query(`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS dinari_entity_id TEXT;
+  `);
+  await db.query(`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS dinari_account_id TEXT;
+  `);
+  await db.query(`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS dinari_wallet_linked_at TIMESTAMPTZ;
+  `);
+  await db.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_users_dinari_entity_id
+    ON users (dinari_entity_id)
+    WHERE dinari_entity_id IS NOT NULL;
+  `);
+
   // Webhook events — audit trail for Crossmint + Goldsky
   await db.query(`
     CREATE TABLE IF NOT EXISTS webhook_events (

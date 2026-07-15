@@ -1,10 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useDinariStocks, useDinariStockPrice, useDinariEntity } from "@/hooks/dinari/useDinariData";
+import { useEffect, useState } from "react";
+import { EVMWallet, useWallet } from "@crossmint/client-sdk-react-ui";
+import {
+  useDinariLinkWallet,
+  useDinariSession,
+  useDinariStockPrice,
+  useDinariStocks,
+} from "@/hooks/dinari/useDinariData";
 import { formatUsd } from "@/lib/formatters";
 import { useAuth } from "@/context/AuthContext";
-import { useWallet } from "@crossmint/client-sdk-react-ui";
 
 interface DinariStock {
   id: string;
@@ -20,97 +25,92 @@ export function DinariStockTrading() {
   const [quantity, setQuantity] = useState<string>("1");
   const [orderType, setOrderType] = useState<"BUY" | "SELL">("BUY");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [entityId, setEntityId] = useState<string | null>(null);
-  const [kycStatus, setKycStatus] = useState<string | null>(null);
-  
+  const [linkError, setLinkError] = useState<string | null>(null);
+
   const { status: authStatus, jwt } = useAuth();
   const { wallet } = useWallet();
-  
+
+  const {
+    data: session,
+    isLoading: sessionLoading,
+    error: sessionError,
+    refetch: refetchSession,
+  } = useDinariSession();
   const { data: stocks, isLoading: stocksLoading, error: stocksError } = useDinariStocks();
-  const { data: stockPrice, isLoading: priceLoading, error: priceError } = useDinariStockPrice(selectedStock?.symbol || "");
-  const { data: entity, isLoading: entityLoading } = useDinariEntity(entityId || "");
-  
-  // Auto-select first stock when loaded
+  const {
+    data: stockPrice,
+    isLoading: priceLoading,
+  } = useDinariStockPrice(selectedStock?.symbol || "");
+  const linkWallet = useDinariLinkWallet();
+
   useEffect(() => {
     if (stocks && stocks.length > 0 && !selectedStock) {
       setSelectedStock(stocks[0]);
     }
   }, [stocks, selectedStock]);
-  
-  // Check KYC status
-  useEffect(() => {
-    if (entity) {
-      setKycStatus(entity.status);
-    }
-  }, [entity]);
-  
-  const handleCreateEntity = async () => {
-    if (authStatus !== "logged-in" || !wallet) return;
-    
+
+  const handleLinkWallet = async () => {
+    if (!session || !wallet?.address) return;
+    setLinkError(null);
+
     try {
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      };
-      
-      if (jwt) {
-        headers['Authorization'] = `Bearer ${jwt}`;
-      }
-      
-      const response = await fetch("/api/dinari/entities", {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          name: "Creative Bank User",
-          email: "user@example.com", // This would come from auth context
-          walletAddress: wallet.address
-        }),
+      const evmWallet = EVMWallet.from(wallet);
+      await linkWallet.mutateAsync({
+        accountId: session.accountId,
+        walletAddress: wallet.address.toLowerCase(),
+        chainId: session.chainId,
+        signMessage: async (message: string) => {
+          const result = await evmWallet.signMessage({ message });
+          if (!result.signature) {
+            throw new Error("Wallet did not return a signature");
+          }
+          return result.signature;
+        },
       });
-      
-      if (!response.ok) {
-        throw new Error("Failed to create entity");
-      }
-      
-      const result = await response.json();
-      setEntityId(result.id);
-    } catch (error) {
-      console.error("Failed to create entity:", error);
+      await refetchSession();
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Failed to link wallet";
+      console.error("Failed to link Dinari wallet:", error);
+      setLinkError(message);
     }
   };
-  
+
   const handlePlaceOrder = async () => {
-    if (!selectedStock || !quantity || !entityId) return;
-    
-    // Check KYC status before placing order
-    if (kycStatus !== "APPROVED") {
+    if (!selectedStock || !quantity || !session?.entityId) return;
+
+    if (session.kycStatus !== "APPROVED") {
       alert("KYC verification required before placing orders");
       return;
     }
-    
+    if (!session.walletLinked) {
+      alert("Link your wallet before placing orders");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const headers: HeadersInit = {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       };
-      
       if (jwt) {
-        headers['Authorization'] = `Bearer ${jwt}`;
+        headers.Authorization = `Bearer ${jwt}`;
       }
-      
+
       const response = await fetch("/api/dinari/orders", {
         method: "POST",
         headers,
         body: JSON.stringify({
-          entityId: entityId,
+          entityId: session.entityId,
           assetId: selectedStock.id,
           quantity: parseFloat(quantity),
           orderType,
         }),
       });
-      
+
       if (!response.ok) {
         throw new Error("Failed to place order");
       }
-      
+
       const result = await response.json();
       console.log("Order placed:", result);
       alert("Order placed successfully!");
@@ -121,19 +121,34 @@ export function DinariStockTrading() {
       setIsSubmitting(false);
     }
   };
-  
-  const totalCost = selectedStock && quantity 
-    ? parseFloat(quantity) * (stockPrice?.price || selectedStock.price || 0)
-    : 0;
-  
-  if (stocksLoading || entityLoading) {
+
+  const totalCost =
+    selectedStock && quantity
+      ? parseFloat(quantity) * (stockPrice?.price || selectedStock.price || 0)
+      : 0;
+
+  if (sessionLoading || stocksLoading) {
     return (
       <div className="flex h-full w-full items-center justify-center">
         <div className="border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" />
       </div>
     );
   }
-  
+
+  if (sessionError) {
+    return (
+      <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        Failed to load Dinari session: {sessionError.message}
+        {sessionError.message.includes("DINARI_SANDBOX_ENTITY_ID") && (
+          <p className="mt-2 text-xs">
+            Set <code className="font-mono">DINARI_SANDBOX_ENTITY_ID</code> from your Dinari
+            dashboard when running in sandbox mode.
+          </p>
+        )}
+      </div>
+    );
+  }
+
   if (stocksError) {
     return (
       <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
@@ -141,59 +156,92 @@ export function DinariStockTrading() {
       </div>
     );
   }
-  
-  // Show KYC requirement if user doesn't have an entity
-  if (!entityId) {
+
+  if (!session) {
+    return (
+      <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        Unable to resolve Dinari session.
+      </div>
+    );
+  }
+
+  if (!session.walletLinked) {
     return (
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-xl font-semibold text-slate-900">KYC Verification Required</h2>
+        <h2 className="mb-4 text-xl font-semibold text-slate-900">Link Wallet to Dinari</h2>
         <p className="mb-4 text-slate-600">
-          Before you can trade stocks, you need to complete KYC verification with Dinari.
+          Prove ownership of your Crossmint wallet so Dinari can whitelist it for dShares.
         </p>
+        <div className="mb-4 rounded-lg bg-slate-50 p-4 text-sm text-slate-700">
+          <p>
+            Mode: <span className="font-medium">{session.mode}</span>
+          </p>
+          <p>
+            Entity ID: <span className="font-mono text-xs">{session.entityId}</span>
+          </p>
+          <p>
+            Account ID: <span className="font-mono text-xs">{session.accountId}</span>
+          </p>
+          <p>
+            KYC: <span className="font-medium">{session.kycStatus}</span>
+          </p>
+        </div>
+        {linkError && (
+          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            {linkError}
+          </div>
+        )}
         <button
           type="button"
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-          onClick={handleCreateEntity}
-          disabled={authStatus !== "logged-in" || !wallet}
+          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+          onClick={handleLinkWallet}
+          disabled={
+            authStatus !== "logged-in" || !wallet || linkWallet.isPending
+          }
+          aria-label="Link Crossmint wallet to Dinari"
         >
-          Start KYC Verification
+          {linkWallet.isPending ? "Linking…" : "Link Wallet"}
         </button>
       </div>
     );
   }
-  
-  // Show KYC status
-  if (kycStatus !== "APPROVED") {
+
+  if (session.kycStatus !== "APPROVED") {
     return (
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-xl font-semibold text-slate-900">KYC Verification in Progress</h2>
+        <h2 className="mb-4 text-xl font-semibold text-slate-900">KYC Verification Required</h2>
         <p className="mb-4 text-slate-600">
-          Your KYC verification is currently {kycStatus?.toLowerCase() || "pending"}. 
-          You'll be able to trade once it's approved.
+          Your wallet is linked. Complete KYC in the Dinari Partners portal before trading.
         </p>
         <div className="rounded-lg bg-yellow-50 p-4">
           <p className="text-sm text-yellow-800">
-            Entity ID: {entityId}
+            Entity ID: <span className="font-mono text-xs">{session.entityId}</span>
           </p>
-          <p className="text-sm text-yellow-800">
-            Status: {kycStatus || "Pending"}
-          </p>
+          <p className="text-sm text-yellow-800">Status: {session.kycStatus}</p>
+          <p className="text-sm text-yellow-800">Mode: {session.mode}</p>
         </div>
+        <button
+          type="button"
+          className="mt-4 rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          onClick={() => refetchSession()}
+          aria-label="Refresh KYC status"
+        >
+          Refresh status
+        </button>
       </div>
     );
   }
-  
+
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-xl font-semibold text-slate-900">Stock Trading</h2>
         <div className="rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-800">
-          KYC Approved
+          KYC Approved · Wallet Linked
         </div>
       </div>
-      
+
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        {/* Stock Selection */}
         <div>
           <h3 className="mb-2 text-sm font-medium text-slate-700">Select Stock</h3>
           <div className="space-y-2">
@@ -222,17 +270,16 @@ export function DinariStockTrading() {
             ))}
           </div>
         </div>
-        
-        {/* Order Form */}
+
         <div>
           <h3 className="mb-2 text-sm font-medium text-slate-700">Place Order</h3>
           {selectedStock ? (
             <div className="space-y-4">
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">
+                <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="order-type">
                   Order Type
                 </label>
-                <div className="flex gap-2">
+                <div className="flex gap-2" id="order-type">
                   <button
                     type="button"
                     className={`flex-1 rounded-lg border py-2 text-sm font-medium ${
@@ -257,12 +304,16 @@ export function DinariStockTrading() {
                   </button>
                 </div>
               </div>
-              
+
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">
+                <label
+                  className="mb-1 block text-sm font-medium text-slate-700"
+                  htmlFor="order-quantity"
+                >
                   Quantity
                 </label>
                 <input
+                  id="order-quantity"
                   type="number"
                   value={quantity}
                   onChange={(e) => setQuantity(e.target.value)}
@@ -271,12 +322,14 @@ export function DinariStockTrading() {
                   className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
-              
+
               <div className="rounded-lg bg-slate-50 p-3">
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-600">Price per share</span>
                   <span className="font-medium">
-                    {formatUsd(stockPrice?.price || selectedStock.price)}
+                    {priceLoading
+                      ? "…"
+                      : formatUsd(stockPrice?.price || selectedStock.price)}
                   </span>
                 </div>
                 <div className="mt-1 flex justify-between text-sm">
@@ -285,12 +338,10 @@ export function DinariStockTrading() {
                 </div>
                 <div className="mt-2 flex justify-between border-t border-slate-200 pt-2">
                   <span className="font-medium">Total</span>
-                  <span className="font-bold text-blue-600">
-                    {formatUsd(totalCost)}
-                  </span>
+                  <span className="font-bold text-blue-600">{formatUsd(totalCost)}</span>
                 </div>
               </div>
-              
+
               <button
                 type="button"
                 className={`w-full rounded-lg py-2 text-sm font-semibold text-white transition ${
